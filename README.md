@@ -1,6 +1,6 @@
-# Travel Explore - Khám Phá Sài Gòn 🏙️
+# Travel Explore - Khám phá Việt Nam 🏙️
 
-A modern, responsive travel exploration website for Ho Chi Minh City, Vietnam. Built with Next.js 15, TypeScript, and Tailwind CSS, inspired by Atlas Obscura's design principles.
+A modern, responsive travel exploration website for Vietnam. Built with Next.js 15, TypeScript, and Tailwind CSS, inspired by Atlas Obscura's design principles.
 
 ## ✨ Features
 
@@ -158,6 +158,3 @@ This project is open source and available under the [MIT License](LICENSE).
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
----
-
-Built with ❤️ for exploring the beautiful city of Ho Chi Minh, Vietnam
