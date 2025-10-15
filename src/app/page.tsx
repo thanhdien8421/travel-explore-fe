@@ -6,11 +6,11 @@ import NavBar from "@/components/nav-bar";
 import HeroSection from "@/components/hero-section";
 import LocationCarousel from "@/components/card-list/location-carousel";
 import SearchOverlay from "@/components/search/search-overlay";
-import { apiService, Location } from "@/lib/api";
+import { apiService, PlaceSummary } from "@/lib/api";
 import LocationBadge from "@/components/location-badge";
 
 export default function HomePage() {
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [locations, setLocations] = useState<PlaceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -23,8 +23,8 @@ export default function HomePage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiService.getLocations({ limit: 12 });
-      setLocations(response.data);
+      const places = await apiService.getFeaturedPlaces(12); // Get featured places for carousel
+      setLocations(places);
     } catch (err) {
       setError("Không thể tải danh sách địa điểm. Vui lòng thử lại sau.");
       console.error("Error fetching locations:", err);

@@ -5,7 +5,9 @@ import { notFound, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import NavBar from "@/components/nav-bar";
-import { apiService, Location } from "@/lib/api";
+import LocationMap from "@/components/location-map";
+import { apiService, PlaceDetail } from "@/lib/api";
+import { generateMapUrls } from "@/lib/geo-utils";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -14,7 +16,7 @@ interface Props {
 export default function LocationDetail({ params }: Props) {
   const router = useRouter();
   const resolvedParams = use(params);
-  const [location, setLocation] = useState<Location | null>(null);
+  const [location, setLocation] = useState<PlaceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -27,11 +29,15 @@ export default function LocationDetail({ params }: Props) {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiService.getLocationById(Number(resolvedParams.id));
-      setLocation(response.data);
-    } catch (err) {
-      setError("Không thể tải thông tin địa điểm. Vui lòng thử lại sau.");
-      console.error("Error fetching location:", err);
+      const place = await apiService.getPlaceBySlug(resolvedParams.id); // Using slug instead of ID
+      setLocation(place);
+    } catch (err: any) {
+      if (err.message?.includes('not found')) {
+        notFound();
+      } else {
+        setError("Không thể tải thông tin địa điểm. Vui lòng thử lại sau.");
+        console.error("Error fetching location:", err);
+      }
     } finally {
       setLoading(false);
     }
@@ -73,8 +79,12 @@ export default function LocationDetail({ params }: Props) {
     );
   }
 
-  // Mock data for gallery (since API only has one image)
-  const galleryImages = [location.image, location.image, location.image];
+  // Use images from the place detail or fallback to cover image
+  const galleryImages = location.images && location.images.length > 0 
+    ? location.images 
+    : location.cover_image_url 
+      ? [{ id: 'cover', image_url: location.cover_image_url, caption: location.name }]
+      : [{ id: 'placeholder', image_url: '/images/placeholder.jpg', caption: location.name }];
 
   return (
     <div className="min-h-screen bg-[rgb(252,252,252)]">
@@ -83,7 +93,7 @@ export default function LocationDetail({ params }: Props) {
       {/* Header Section with Hero Image */}
       <div className="relative h-[60vh] min-h-[400px] max-h-[600px] w-full">
         <Image
-          src={location.image}
+          src={location.cover_image_url || '/images/placeholder.jpg'}
           alt={location.name}
           fill
           className="object-cover"
@@ -103,18 +113,20 @@ export default function LocationDetail({ params }: Props) {
               {location.name}
             </h1>
             <div className="flex flex-wrap items-center gap-4 text-lg">
-              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
-                <svg className="w-5 h-5 text-yellow-400 fill-current" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <span className="font-semibold">{location.rating}</span>
-              </div>
+              {location.is_featured && (
+                <div className="flex items-center gap-2 bg-yellow-500/20 backdrop-blur-sm rounded-full px-4 py-2">
+                  <svg className="w-5 h-5 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  <span className="font-semibold">Nổi bật</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span>{location.location}</span>
+                <span>{location.district || location.city || "TP. Hồ Chí Minh"}</span>
               </div>
             </div>
           </div>
@@ -185,8 +197,8 @@ export default function LocationDetail({ params }: Props) {
               {/* Main Image */}
               <div className="relative h-96 rounded-lg overflow-hidden mb-4">
                 <Image
-                  src={galleryImages[activeImageIndex]}
-                  alt={`${location.name} - Image ${activeImageIndex + 1}`}
+                  src={galleryImages[activeImageIndex].image_url}
+                  alt={galleryImages[activeImageIndex].caption || `${location.name} - Image ${activeImageIndex + 1}`}
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 66vw"
@@ -197,7 +209,7 @@ export default function LocationDetail({ params }: Props) {
               <div className="grid grid-cols-3 gap-4">
                 {galleryImages.map((img, index) => (
                   <button
-                    key={index}
+                    key={img.id}
                     onClick={() => setActiveImageIndex(index)}
                     className={`relative h-24 rounded-lg overflow-hidden transition-all ${
                       activeImageIndex === index 
@@ -206,8 +218,8 @@ export default function LocationDetail({ params }: Props) {
                     }`}
                   >
                     <Image
-                      src={img}
-                      alt={`Thumbnail ${index + 1}`}
+                      src={img.image_url}
+                      alt={img.caption || `Thumbnail ${index + 1}`}
                       fill
                       className="object-cover"
                       sizes="200px"
@@ -217,23 +229,86 @@ export default function LocationDetail({ params }: Props) {
               </div>
             </section>
 
-            {/* Map Section (Placeholder) */}
+            {/* Map Section */}
             <section className="bg-white rounded-lg shadow-sm p-6">
               <h2 
                 className="text-2xl font-bold text-gray-900 mb-4"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
-                Vị trí
+                Vị trí trên bản đồ
               </h2>
-              <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
-                <div className="text-center">
-                  <svg className="mx-auto mb-4 w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                  </svg>
-                  <p className="text-gray-500 mb-2">Bản đồ sẽ được tích hợp sớm</p>
-                  <p className="text-sm text-gray-400">{location.location}</p>
+              
+              {location.latitude && location.longitude ? (
+                <div className="space-y-4">
+                  <LocationMap
+                    latitude={location.latitude}
+                    longitude={location.longitude}
+                    placeName={location.name}
+                    address={location.address_text || `${location.district}, ${location.city}`}
+                  />
+                  
+                  {/* Address info below map */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                      </svg>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 mb-1">Địa chỉ</h4>
+                        <p className="text-gray-600 text-sm">
+                          {location.address_text || `${location.district}, ${location.city}` || "Thông tin địa chỉ đang được cập nhật"}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Tọa độ: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Map actions */}
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const mapUrls = generateMapUrls({ latitude: location.latitude, longitude: location.longitude }, location.name);
+                      return (
+                        <>
+                          <a
+                            href={mapUrls.googleMaps}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            Mở trong Google Maps
+                          </a>
+                          <a
+                            href={mapUrls.openStreetMap}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                            </svg>
+                            Xem trên OpenStreetMap
+                          </a>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
+                  <div className="text-center">
+                    <svg className="mx-auto mb-4 w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    <p className="text-gray-500 mb-2">Vị trí chưa được cập nhật</p>
+                    <p className="text-sm text-gray-400">{location.address_text || `${location.district}, ${location.city}`}</p>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Reviews Section (Placeholder) */}
@@ -267,14 +342,16 @@ export default function LocationDetail({ params }: Props) {
               </h3>
               
               <div className="space-y-4">
-                {/* Rating */}
+                {/* Status - Featured or Regular */}
                 <div className="flex items-start gap-3 pb-4 border-b border-gray-100">
-                  <svg className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-500">Đánh giá</p>
-                    <p className="font-semibold text-gray-900">{location.rating} / 5.0</p>
+                    <p className="text-sm text-gray-500">Trạng thái</p>
+                    <p className="font-semibold text-gray-900">
+                      {location.is_featured ? "Điểm đến nổi bật" : "Địa điểm thú vị"}
+                    </p>
                   </div>
                 </div>
 
@@ -286,43 +363,68 @@ export default function LocationDetail({ params }: Props) {
                   </svg>
                   <div className="flex-1">
                     <p className="text-sm text-gray-500">Địa chỉ</p>
-                    <p className="font-medium text-gray-900">{location.location}</p>
+                    <p className="font-medium text-gray-900">
+                      {location.address_text || `${location.district}, ${location.city}` || "TP. Hồ Chí Minh"}
+                    </p>
+                    {location.latitude && location.longitude && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Tọa độ: {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                {/* Opening Hours (Mock) */}
-                <div className="flex items-start gap-3 pb-4 border-b border-gray-100">
-                  <svg className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500">Giờ mở cửa</p>
-                    <p className="font-medium text-gray-900">8:00 - 17:00</p>
-                    <p className="text-sm text-green-600">Đang mở cửa</p>
+                {/* Opening Hours */}
+                {location.opening_hours && (
+                  <div className="flex items-start gap-3 pb-4 border-b border-gray-100">
+                    <svg className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Giờ mở cửa</p>
+                      <p className="font-medium text-gray-900">{location.opening_hours}</p>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Price (Mock) */}
-                <div className="flex items-start gap-3 pb-4 border-b border-gray-100">
-                  <svg className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500">Giá vé</p>
-                    <p className="font-medium text-gray-900">Miễn phí</p>
+                {/* Price */}
+                {location.price_info && (
+                  <div className="flex items-start gap-3 pb-4 border-b border-gray-100">
+                    <svg className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Giá vé</p>
+                      <p className="font-medium text-gray-900">{location.price_info}</p>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Contact (Mock) */}
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500">Liên hệ</p>
-                    <p className="font-medium text-gray-900">Đang cập nhật</p>
+                {/* Contact */}
+                {location.contact_info && (
+                  <div className="flex items-start gap-3 pb-4 border-b border-gray-100">
+                    <svg className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Liên hệ</p>
+                      <p className="font-medium text-gray-900">{location.contact_info}</p>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Tips */}
+                {location.tips_notes && (
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Gợi ý</p>
+                      <p className="font-medium text-gray-900">{location.tips_notes}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -332,7 +434,7 @@ export default function LocationDetail({ params }: Props) {
                 <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
-                <h3 className="font-semibold text-gray-900">Lời khuyên</h3>
+                <h3 className="font-semibold text-gray-900">Lời khuyên chung</h3>
               </div>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li className="flex gap-2">

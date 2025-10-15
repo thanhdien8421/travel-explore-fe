@@ -3,15 +3,53 @@
  * Handles all HTTP requests to the backend API
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export interface Location {
-  id: number;
-  name: string;
-  description: string;
-  location: string;
-  image: string;
-  rating: number;
+// Place summary interface (for list views)
+export interface PlaceSummary {
+  id: string;                      // UUID
+  name: string;                    // Place name
+  slug: string;                    // URL-friendly identifier
+  description: string | null;      // Short description
+  district: string | null;         // District name
+  cover_image_url: string | null;  // Main image URL
+  is_featured?: boolean;           // Featured flag (optional in summary)
+}
+
+// Place image interface
+export interface PlaceImage {
+  id: string;                      // UUID
+  image_url: string;               // Image URL
+  caption?: string | null;         // Image caption
+}
+
+// Place detail interface (for detail views)
+export interface PlaceDetail {
+  id: string;                      // UUID
+  name: string;                    // Place name
+  slug: string;                    // URL-friendly identifier
+  description?: string | null;     // Full description
+  address_text?: string | null;    // Full address
+  district?: string | null;        // District name
+  city?: string | null;            // City name
+  latitude?: number | null;        // Latitude coordinate
+  longitude?: number | null;       // Longitude coordinate
+  cover_image_url?: string | null; // Main image URL
+  opening_hours?: string | null;   // Opening hours info
+  price_info?: string | null;      // Price information
+  contact_info?: string | null;    // Contact details
+  tips_notes?: string | null;      // Visitor tips
+  is_featured: boolean;            // Featured flag
+  created_at: Date;                // Creation timestamp
+  updated_at: Date;                // Last update timestamp
+  images: PlaceImage[];            // Array of images
+}
+
+// Legacy interfaces for backward compatibility
+export interface Location extends PlaceSummary {
+  location: string;                // For backward compatibility
+  image: string;                   // For backward compatibility
+  rating: number;                  // For backward compatibility
   createdAt: string;
   updatedAt: string;
 }
@@ -22,6 +60,21 @@ export interface CreateLocationDto {
   location: string;
   image: string;
   rating?: number;
+}
+
+// New interface for creating places with the new API
+export interface CreatePlaceDto {
+  name: string;
+  description: string;
+  address_text: string;            // Full address for OpenStreetMap geocoding
+  cover_image_url: string;         // Cover image URL
+  district?: string;               // Optional district
+  city?: string;                   // Optional city
+  opening_hours?: string;          // Optional opening hours
+  price_info?: string;             // Optional price information
+  contact_info?: string;           // Optional contact details
+  tips_notes?: string;             // Optional visitor tips
+  is_featured?: boolean;           // Optional featured flag (default: false)
 }
 
 export interface LocationsResponse {
@@ -83,7 +136,39 @@ class ApiService {
     }
   }
 
-  // Get all locations with optional search and filters
+  // Get places list with optional featured filter
+  async getPlaces(params?: {
+    featured?: boolean;
+    limit?: number;
+  }): Promise<PlaceSummary[]> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.featured !== undefined) queryParams.append("featured", params.featured.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const url = `${this.baseUrl}/api/places${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return this.fetchWithError(url);
+  }
+
+  // Get featured places (convenience method)
+  async getFeaturedPlaces(limit: number = 8): Promise<PlaceSummary[]> {
+    return this.getPlaces({ featured: true, limit });
+  }
+
+  // Get all places (convenience method)
+  async getAllPlaces(limit: number = 10): Promise<PlaceSummary[]> {
+    return this.getPlaces({ limit });
+  }
+
+  // Get place details by slug
+  async getPlaceBySlug(slug: string): Promise<PlaceDetail> {
+    if (!slug) {
+      throw new Error('Slug is required');
+    }
+    return this.fetchWithError(`${this.baseUrl}/api/places/${slug}`);
+  }
+
+  // Legacy methods for backward compatibility
   async getLocations(params?: {
     search?: string;
     minRating?: number;
@@ -97,41 +182,50 @@ class ApiService {
     if (params?.page) queryParams.append("page", params.page.toString());
     if (params?.limit) queryParams.append("limit", params.limit.toString());
 
-    const url = `${this.baseUrl}/locations${queryParams.toString() ? `?${queryParams}` : ""}`;
+    const url = `${this.baseUrl}/api/locations${queryParams.toString() ? `?${queryParams}` : ""}`;
     return this.fetchWithError(url);
   }
 
-  // Get single location by ID
+  // Get single location by ID (legacy)
   async getLocationById(id: number): Promise<LocationResponse> {
-    return this.fetchWithError(`${this.baseUrl}/locations/${id}`);
+    return this.fetchWithError(`${this.baseUrl}/api/locations/${id}`);
   }
 
-  // Create new location
+  // Create new location (legacy)
   async createLocation(data: CreateLocationDto): Promise<LocationResponse> {
-    return this.fetchWithError(`${this.baseUrl}/locations`, {
+    return this.fetchWithError(`${this.baseUrl}/api/locations`, {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  // Update location
+  // Create new place with new API (with OpenStreetMap integration)
+  async createPlace(data: CreatePlaceDto): Promise<PlaceDetail> {
+    const response = await this.fetchWithError(`${this.baseUrl}/api/admin/places`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response;
+  }
+
+  // Update location (legacy)
   async updateLocation(id: number, data: Partial<CreateLocationDto>): Promise<LocationResponse> {
-    return this.fetchWithError(`${this.baseUrl}/locations/${id}`, {
+    return this.fetchWithError(`${this.baseUrl}/api/locations/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
   }
 
-  // Delete location
+  // Delete location (legacy)
   async deleteLocation(id: number): Promise<void> {
-    return this.fetchWithError(`${this.baseUrl}/locations/${id}`, {
+    return this.fetchWithError(`${this.baseUrl}/api/locations/${id}`, {
       method: "DELETE",
     });
   }
 
-  // Get statistics (for admin)
+  // Get statistics (legacy)
   async getStatistics(): Promise<StatisticsResponse> {
-    return this.fetchWithError(`${this.baseUrl}/locations/statistics`);
+    return this.fetchWithError(`${this.baseUrl}/api/locations/statistics`);
   }
 }
 

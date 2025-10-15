@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import LocationCard from "./location-card";
-import { Location } from "@/lib/api";
+import { PlaceSummary } from "@/lib/api";
 
 interface LocationCarouselProps {
-  locations: Location[];
+  locations: PlaceSummary[];
 }
 
 export default function LocationCarousel({ locations }: LocationCarouselProps) {

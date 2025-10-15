@@ -5,11 +5,11 @@ import NavBar from "@/components/nav-bar";
 import LocationBadge from "@/components/location-badge";
 import SearchOverlay from "@/components/search/search-overlay";
 import LocationCard from "@/components/card-list/location-card";
-import { apiService, Location } from "@/lib/api";
+import { apiService, PlaceSummary } from "@/lib/api";
 import Link from "next/link";
 
 export default function LocationsPage() {
-    const [locations, setLocations] = useState<Location[]>([]);
+    const [locations, setLocations] = useState<PlaceSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
@@ -23,11 +23,9 @@ export default function LocationsPage() {
         try {
             setLoading(true);
             setError(null);
-            const response = await apiService.getLocations({
-                search,
-                limit: 50,
-            });
-            setLocations(response.data);
+            // For now, get all places since search is not implemented in new API
+            const places = await apiService.getAllPlaces(50);
+            setLocations(places);
         } catch (err) {
             setError("Không thể tải danh sách địa điểm. Vui lòng thử lại sau.");
             console.error("Error fetching locations:", err);
@@ -38,7 +36,17 @@ export default function LocationsPage() {
 
     const handleSearch = (query: string) => {
         setSearchQuery(query);
-        fetchLocations(query);
+        // For now, just filter locally since search is not implemented in new API
+        if (query.trim()) {
+            const filtered = locations.filter(location => 
+                location.name.toLowerCase().includes(query.toLowerCase()) ||
+                (location.description && location.description.toLowerCase().includes(query.toLowerCase())) ||
+                (location.district && location.district.toLowerCase().includes(query.toLowerCase()))
+            );
+            setLocations(filtered);
+        } else {
+            fetchLocations();
+        }
     };
 
     return (
