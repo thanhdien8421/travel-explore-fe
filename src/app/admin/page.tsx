@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import AdminSidebar from "@/components/admin-sidebar";
 import { apiService, PlaceSummary } from "@/lib/api";
+import { getImageUrl } from "@/lib/image-utils";
 
 interface Statistics {
   totalLocations: number;
@@ -222,7 +223,7 @@ export default function AdminPage() {
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-16 w-16">
                           <Image
-                            src={location.cover_image_url || '/images/placeholder.jpg'}
+                            src={getImageUrl(location.cover_image_url)}
                             alt={location.name}
                             width={64}
                             height={64}

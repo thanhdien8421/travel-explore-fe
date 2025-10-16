@@ -2,11 +2,13 @@
 
 import { useState, useRef } from "react";
 import { getSupabaseClient, STORAGE_BUCKET, isSupabaseConfigured } from "@/lib/supabase";
+import { generateSlug } from "@/lib/slug";
 
 interface SupabaseImageUploadProps {
   onUploadComplete: (url: string) => void;
   onImageRemove: () => void;
   currentImage?: string;
+  placeName?: string;  // Place name to generate slug-based filename
   label?: string;
   required?: boolean;
 }
@@ -15,6 +17,7 @@ export default function SupabaseImageUpload({
   onUploadComplete,
   onImageRemove,
   currentImage,
+  placeName,
   label = "Upload Image",
   required = false
 }: SupabaseImageUploadProps) {
@@ -43,49 +46,51 @@ export default function SupabaseImageUpload({
 
       // Check if Supabase is configured
       if (!isSupabaseConfigured()) {
-        // Simulate upload for demo purposes
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate upload time
-        
-        // For demo, we'll use the local blob URL
-        // In real implementation, this would be the Supabase public URL
-        const mockUrl = `https://demo-storage.supabase.co/storage/v1/object/public/travel-images/locations/${Date.now()}-${file.name}`;
-        onUploadComplete(mockUrl);
-        
-        alert('Demo mode: Ảnh đã được "upload" thành công! (Chưa kết nối Supabase thật)');
-        return;
+        throw new Error('Supabase chưa được cấu hình. Vui lòng kiểm tra environment variables.');
       }
 
-      // Generate unique filename for real upload
+      // Generate filename based on place name if provided, otherwise use random
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `locations/${fileName}`;
+      let fileName: string;
+      
+      if (placeName && placeName.trim()) {
+        // Use slug-based filename: slug.ext (e.g., "dinh-doc-lap.jpg")
+        const slug = generateSlug(placeName);
+        fileName = `${slug}.${fileExt}`;
+      } else {
+        // Fallback to timestamp-based filename if no place name
+        fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      }
 
       // Get Supabase client
       const supabase = getSupabaseClient();
 
-      // Upload to Supabase Storage
+      // Upload to Supabase Storage with upsert to handle duplicates
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(STORAGE_BUCKET)
-        .upload(filePath, file, {
+        .upload(fileName, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true, // If file exists, replace it (useful for updating images)
+          contentType: file.type // Set correct MIME type (image/jpeg, image/png, etc.)
         });
 
       if (uploadError) {
+        // If still error (e.g., permission issues), throw it
         throw uploadError;
       }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from(STORAGE_BUCKET)
-        .getPublicUrl(filePath);
 
       // Clean up local preview URL
       URL.revokeObjectURL(localPreviewUrl);
       
-      // Set the actual uploaded URL
+      // Return just the filename (what backend expects), not the full URL
+      // Backend will use getImageUrl() to convert this to full Supabase URL
+      onUploadComplete(fileName);
+      
+      // For preview, we can still show the full URL
+      const { data: urlData } = supabase.storage
+        .from(STORAGE_BUCKET)
+        .getPublicUrl(fileName);
       setPreviewUrl(urlData.publicUrl);
-      onUploadComplete(urlData.publicUrl);
 
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -201,12 +206,6 @@ export default function SupabaseImageUpload({
         <p className="text-xs text-blue-600">
           💡 Ảnh đang được upload lên Supabase Storage...
         </p>
-      )}
-
-      {!isSupabaseConfigured() && (
-        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-          🧪 <strong>Demo Mode:</strong> Supabase chưa được cấu hình. Upload sẽ được mô phỏng.
-        </div>
       )}
     </div>
   );

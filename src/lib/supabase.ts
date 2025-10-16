@@ -30,4 +30,4 @@ export const getSupabaseClient = () => {
 }
 
 // Storage bucket name
-export const STORAGE_BUCKET = 'travel-images'
+export const STORAGE_BUCKET = 'images'

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { apiService, PlaceSummary } from "@/lib/api";
+import { getImageUrl } from "@/lib/image-utils";
 
 export default function HeroSection() {
     const [featuredPlaces, setFeaturedPlaces] = useState<PlaceSummary[]>([]);
@@ -144,7 +145,7 @@ export default function HeroSection() {
                 <div className="relative w-full h-[400px] md:h-[500px] flex items-end">
                     {/* Full background image */}
                     <Image
-                        src={currentPlace.cover_image_url || "/images/placeholder.jpg"}
+                        src={getImageUrl(currentPlace.cover_image_url)}
                         alt={currentPlace.name}
                         fill
                         className="object-cover rounded-none"

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { getImageUrl } from "@/lib/image-utils";
 
 interface Location {
   id: string;
@@ -15,13 +16,16 @@ interface LocationCardProps {
 }
 
 export default function LocationCard({ location }: LocationCardProps) {
+  // Convert storage path to full CDN URL
+  const imageUrl = getImageUrl(location.cover_image_url);
+
   return (
     <Link href={`/locations/${location.slug}`} className="group h-full">
       <article className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 h-full flex flex-col">
         {/* Image */}
         <div className="relative h-56 w-full overflow-hidden flex-shrink-0">
           <Image
-            src={location.cover_image_url || "/images/placeholder.jpg"}
+            src={imageUrl}
             alt={location.name}
             fill
             className="object-cover group-hover:scale-110 transition-transform duration-500"

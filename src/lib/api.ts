@@ -66,15 +66,17 @@ export interface CreateLocationDto {
 export interface CreatePlaceDto {
   name: string;
   description: string;
-  address_text: string;            // Full address for OpenStreetMap geocoding
-  cover_image_url: string;         // Cover image URL
-  district?: string;               // Optional district
-  city?: string;                   // Optional city
-  opening_hours?: string;          // Optional opening hours
-  price_info?: string;             // Optional price information
-  contact_info?: string;           // Optional contact details
-  tips_notes?: string;             // Optional visitor tips
-  is_featured?: boolean;           // Optional featured flag (default: false)
+  addressText: string;              // camelCase to match backend
+  coverImageUrl: string;            // camelCase to match backend
+  district?: string;
+  city?: string;
+  latitude?: number;                // Optional - if provided, skip geocoding
+  longitude?: number;               // Optional - if provided, skip geocoding
+  openingHours?: string;            // camelCase to match backend
+  priceInfo?: string;               // camelCase to match backend
+  contactInfo?: string;             // camelCase to match backend
+  tipsNotes?: string;               // camelCase to match backend
+  isFeatured?: boolean;             // camelCase to match backend (default: false)
 }
 
 export interface LocationsResponse {

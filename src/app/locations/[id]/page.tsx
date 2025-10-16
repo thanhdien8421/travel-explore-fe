@@ -8,6 +8,7 @@ import NavBar from "@/components/nav-bar";
 import LocationMap from "@/components/location-map";
 import { apiService, PlaceDetail } from "@/lib/api";
 import { generateMapUrls } from "@/lib/geo-utils";
+import { getImageUrl } from "@/lib/image-utils";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -81,10 +82,10 @@ export default function LocationDetail({ params }: Props) {
 
   // Use images from the place detail or fallback to cover image
   const galleryImages = location.images && location.images.length > 0 
-    ? location.images 
+    ? location.images.map(img => ({ ...img, image_url: getImageUrl(img.image_url) }))
     : location.cover_image_url 
-      ? [{ id: 'cover', image_url: location.cover_image_url, caption: location.name }]
-      : [{ id: 'placeholder', image_url: '/images/placeholder.jpg', caption: location.name }];
+      ? [{ id: 'cover', image_url: getImageUrl(location.cover_image_url), caption: location.name }]
+      : [{ id: 'placeholder', image_url: '/images/placeholder.png', caption: location.name }];
 
   return (
     <div className="min-h-screen bg-[rgb(252,252,252)]">
@@ -93,7 +94,7 @@ export default function LocationDetail({ params }: Props) {
       {/* Header Section with Hero Image */}
       <div className="relative h-[60vh] min-h-[400px] max-h-[600px] w-full">
         <Image
-          src={location.cover_image_url || '/images/placeholder.jpg'}
+          src={getImageUrl(location.cover_image_url)}
           alt={location.name}
           fill
           className="object-cover"

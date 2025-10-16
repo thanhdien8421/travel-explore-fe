@@ -46,7 +46,7 @@ export default function AddLocation() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [showCoordWarning, setShowCoordWarning] = useState(false);
-  const [jsonPreview, setJsonPreview] = useState<any>(null);
+  const [redirectSlug, setRedirectSlug] = useState<string | null>(null);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -59,6 +59,8 @@ export default function AddLocation() {
   };
 
   const handleLocationChange = (lat: number, lng: number) => {
+    // When picking location on map, ONLY update coordinates
+    // DO NOT update the address field
     setFormData(prev => ({
       ...prev,
       latitude: lat,
@@ -66,12 +68,13 @@ export default function AddLocation() {
     }));
   };
 
-  const handleAddressFromMap = (address: string) => {
-    setFormData(prev => ({
-      ...prev,
-      address_text: address,
-    }));
-  };
+  // Remove this function - we don't want map to update address
+  // const handleAddressFromMap = (address: string) => {
+  //   setFormData(prev => ({
+  //     ...prev,
+  //     address_text: address,
+  //   }));
+  // };
 
   const clearCoordinates = () => {
     setFormData(prev => ({
@@ -100,7 +103,6 @@ export default function AddLocation() {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
-    setJsonPreview(null); // Reset preview
 
     // Check if coordinates are missing and warn user
     if (formData.latitude === null || formData.longitude === null) {
@@ -115,53 +117,35 @@ export default function AddLocation() {
       const placeData: CreatePlaceDto = {
         name: formData.name,
         description: formData.description,
-        address_text: formData.address_text,
-        cover_image_url: formData.cover_image_url,
+        addressText: formData.address_text,          // camelCase for backend
+        coverImageUrl: formData.cover_image_url,     // camelCase for backend
         district: formData.district || undefined,
         city: formData.city || undefined,
-        opening_hours: formData.opening_hours || undefined,
-        price_info: formData.price_info || undefined,
-        contact_info: formData.contact_info || undefined,
-        tips_notes: formData.tips_notes || undefined,
-        is_featured: formData.is_featured,
+        openingHours: formData.opening_hours || undefined,    // camelCase for backend
+        priceInfo: formData.price_info || undefined,          // camelCase for backend
+        contactInfo: formData.contact_info || undefined,      // camelCase for backend
+        tipsNotes: formData.tips_notes || undefined,          // camelCase for backend
+        isFeatured: formData.is_featured,                     // camelCase for backend
       };
 
       // Add coordinates only if they were manually picked on the map
       if (formData.latitude !== null && formData.longitude !== null) {
-        (placeData as any).latitude = formData.latitude;
-        (placeData as any).longitude = formData.longitude;
-        (placeData as any).coordinates_source = "manual_selection"; // Help backend understand the source
+        placeData.latitude = formData.latitude;
+        placeData.longitude = formData.longitude;
       }
-      // If coordinates are null, backend will geocode from address_text
+      // If coordinates are null, backend will geocode from addressText
 
-      // DEMO MODE: Show JSON instead of calling API
-      // Check if API is available by checking the environment
-      const isDemoMode = !process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL.includes('localhost:8000');
+      // Call the real API
+      const createdPlace = await apiService.createPlace(placeData);
+      setSuccess(true);
       
-      if (isDemoMode) {
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Show JSON preview
-        setJsonPreview({
-          endpoint: "POST /api/places",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: placeData,
-          note: "This data will be sent to the backend API when configured"
-        });
-        setSuccess(true);
-      } else {
-        // Use the new API method
-        await apiService.createPlace(placeData);
-        setSuccess(true);
-        
-        // Redirect back to locations page after 1 second
+      // Hide modal and redirect after animation
+      setTimeout(() => {
+        setSuccess(false); // Hide modal first
         setTimeout(() => {
-          router.push("/locations");
-        }, 1000);
-      }
+          router.push(`/locations/${createdPlace.slug}`);
+        }, 300); // Small delay for fade out
+      }, 2000);
     } catch (err) {
       setError("Không thể thêm địa điểm. Vui lòng thử lại sau.");
       console.error("Lỗi khi thêm địa điểm:", err);
@@ -173,6 +157,25 @@ export default function AddLocation() {
   return (
     <div className="min-h-screen bg-[rgb(252,252,252)]">
       <NavBar />
+      
+      {/* Success Modal */}
+      {success && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-in fade-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">Thành công! 🎉</h3>
+            <p className="text-gray-600 mb-2">Địa điểm đã được thêm vào hệ thống.</p>
+            <p className="text-sm text-gray-500">Đang chuyển hướng đến trang chi tiết...</p>
+            <div className="mt-6">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
@@ -192,106 +195,6 @@ export default function AddLocation() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Form and Tabs */}
           <div className="lg:col-span-2">
-            {/* Success Message */}
-            {success && (
-              <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-green-800 font-medium">
-                    {jsonPreview 
-                      ? 'Dữ liệu đã được chuẩn bị! Xem JSON API Request bên dưới ↓' 
-                      : 'Thêm địa điểm thành công! Tọa độ đã được tự động xác định từ địa chỉ. Đang chuyển hướng...'}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* JSON Preview for Demo Mode */}
-            {jsonPreview && (
-              <div className="mb-6 bg-slate-900 text-white rounded-lg p-6 shadow-lg">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <span className="mr-2">📡</span>
-                    API Request Preview (Demo Mode)
-                  </h3>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(JSON.stringify(jsonPreview.body, null, 2));
-                      alert('JSON đã được copy vào clipboard!');
-                    }}
-                    className="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded"
-                  >
-                    📋 Copy JSON
-                  </button>
-                </div>
-                
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">Endpoint:</p>
-                    <p className="text-sm font-mono text-green-400">{jsonPreview.endpoint}</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">Headers:</p>
-                    <pre className="text-xs font-mono bg-slate-800 p-2 rounded overflow-x-auto">
-                      {JSON.stringify(jsonPreview.headers, null, 2)}
-                    </pre>
-                  </div>
-                  
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">Request Body:</p>
-                    <pre className="text-xs font-mono bg-slate-800 p-3 rounded overflow-x-auto max-h-96 overflow-y-auto">
-                      {JSON.stringify(jsonPreview.body, null, 2)}
-                    </pre>
-                  </div>
-                  
-                  <div className="pt-3 border-t border-slate-700">
-                    <p className="text-xs text-yellow-400 flex items-center">
-                      💡 <span className="ml-2">{jsonPreview.note}</span>
-                    </p>
-                  </div>
-                  
-                  <div className="pt-4 flex gap-3">
-                    <button
-                      onClick={() => {
-                        setJsonPreview(null);
-                        setSuccess(false);
-                        setFormData({
-                          name: "",
-                          description: "",
-                          address_text: "",
-                          cover_image_url: "",
-                          district: "",
-                          city: "",
-                          opening_hours: "",
-                          price_info: "",
-                          contact_info: "",
-                          tips_notes: "",
-                          is_featured: false,
-                          latitude: null,
-                          longitude: null,
-                        });
-                      }}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                    >
-                      ➕ Thêm địa điểm khác
-                    </button>
-                    <button
-                      onClick={() => {
-                        setJsonPreview(null);
-                        setSuccess(false);
-                      }}
-                      className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                    >
-                      ✏️ Chỉnh sửa
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Error Message */}
             {error && (
               <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
@@ -373,7 +276,7 @@ export default function AddLocation() {
                     {/* Tên địa điểm */}
                     <div>
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                        Tên địa điểm *
+                        Tên địa điểm <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -390,7 +293,7 @@ export default function AddLocation() {
                     {/* Mô tả */}
                     <div>
                       <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                        Mô tả *
+                        Mô tả <span className="text-red-500">*</span>
                       </label>
                       <textarea
                         id="description"
@@ -407,7 +310,7 @@ export default function AddLocation() {
                     {/* Địa chỉ đầy đủ */}
                     <div>
                       <label htmlFor="address_text" className="block text-sm font-medium text-gray-700 mb-2">
-                        Địa chỉ đầy đủ *
+                        Địa chỉ đầy đủ <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -434,9 +337,20 @@ export default function AddLocation() {
                         onUploadComplete={handleImageUpload}
                         onImageRemove={handleImageRemove}
                         currentImage={formData.cover_image_url}
-                        label="Ảnh bìa *"
+                        placeName={formData.name}
+                        label="Ảnh bìa"
                         required
                       />
+                      {formData.name && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          💡 Ảnh sẽ được lưu với tên: {formData.name.toLowerCase()
+                            .normalize('NFD')
+                            .replace(/[\u0300-\u036f]/g, '')
+                            .replace(/đ/g, 'd')
+                            .replace(/ /g, '-')
+                            .replace(/[^\w-]+/g, '')}.jpg
+                        </p>
+                      )}
                     </div>
 
                     {/* Quận/Huyện */}
@@ -598,7 +512,6 @@ export default function AddLocation() {
                       latitude={formData.latitude}
                       longitude={formData.longitude}
                       onLocationChange={handleLocationChange}
-                      onAddressChange={handleAddressFromMap}
                     />
                     
                     {/* Show current coordinates and address */}
@@ -633,7 +546,7 @@ export default function AddLocation() {
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                       <p className="text-sm text-gray-600">
                         <strong>Cách thức hoạt động:</strong><br/>
-                        • <strong>Địa chỉ</strong> là bắt buộc và sẽ được backend sử dụng để tự động tìm tọa độ<br/>
+                        • <strong>Địa chỉ</strong> là bắt buộc và sẽ được hệ thống sử dụng để tự động tìm tọa độ<br/>
                         • <strong>Tọa độ từ bản đồ</strong> sẽ được ưu tiên nếu bạn chọn (tùy chọn)<br/>
                         • Nếu không chọn tọa độ, hệ thống vẫn hoạt động bình thường với địa chỉ
                       </p>
