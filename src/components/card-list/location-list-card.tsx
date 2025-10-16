@@ -1,14 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-
-interface Location {
-  id: number;
-  name: string;
-  description: string;
-  image: string;
-  location: string;
-  rating: number;
-}
+import { Location } from "@/lib/api";
 
 interface LocationListCardProps {
   location: Location;
