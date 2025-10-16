@@ -218,7 +218,7 @@ export default function AddLocation() {
                     <p className="text-yellow-800 font-medium">Chưa chọn vị trí trên bản đồ</p>
                     <p className="text-yellow-700 text-sm mt-1">
                       Hệ thống sẽ cố gắng xác định tọa độ từ địa chỉ bạn nhập. Để tăng độ chính xác, 
-                      hãy chuyển sang tab "Bản đồ" và chọn vị trí chính xác.
+                      hãy chuyển sang tab &quot;Bản đồ&quot; và chọn vị trí chính xác.
                     </p>
                     <button
                       type="button"
