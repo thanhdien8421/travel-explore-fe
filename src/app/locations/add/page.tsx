@@ -326,7 +326,7 @@ export default function AddLocation() {
                         <p>Địa chỉ này sẽ được sử dụng để tự động tìm tọa độ trên bản đồ.</p>
                         <p className="mt-1">
                           💡 <strong>Mẹo:</strong> Nếu địa chỉ không rõ ràng hoặc không có trên bản đồ, 
-                          hãy sử dụng tab "Bản đồ" để chọn vị trí chính xác.
+                          hãy sử dụng tab &quot;Bản đồ&quot; để chọn vị trí chính xác.
                         </p>
                       </div>
                     </div>

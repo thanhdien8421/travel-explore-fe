@@ -16,7 +16,7 @@ export default function BulkUploadPage() {
     const originalError = console.error;
     const originalWarn = console.warn;
     
-    const captureLog = (...args: any[]) => {
+    const captureLog = (...args: unknown[]) => {
       const message = args.map(arg => 
         typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
       ).join(' ');

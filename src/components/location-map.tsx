@@ -11,7 +11,7 @@ interface LocationMapProps {
 
 export default function LocationMap({ latitude, longitude, placeName, address }: LocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

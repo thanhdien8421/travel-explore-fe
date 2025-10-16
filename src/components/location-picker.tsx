@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type * as L from "leaflet";
 
 interface LocationPickerProps {
   latitude: number | null;
@@ -16,8 +17,8 @@ export default function LocationPicker({
   onAddressChange 
 }: LocationPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -38,7 +39,8 @@ export default function LocationPicker({
       const L = await import("leaflet");
       
       // Fix for default markers in Leaflet with Next.js
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      const iconDefault = L.Icon.Default.prototype as unknown as { _getIconUrl?: string };
+      delete iconDefault._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
         iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
@@ -63,7 +65,7 @@ export default function LocationPicker({
         }
 
         // Add click event to map
-        mapRef.current.on("click", (e: any) => {
+        mapRef.current.on("click", (e: L.LeafletMouseEvent) => {
           const { lat, lng } = e.latlng;
           updateMarker(lat, lng);
           onLocationChange(lat, lng);

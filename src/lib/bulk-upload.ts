@@ -2,10 +2,24 @@ import { placesData } from './seed-data';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+interface PlaceData {
+  name: string;
+  description: string;
+  addressText: string;
+  district: string;
+  latitude: number;
+  longitude: number;
+  coverImageUrl: string;
+  openingHours: string;
+  priceInfo: string;
+  tipsNotes: string;
+  isFeatured?: boolean;
+}
+
 /**
  * Create a place via the backend API
  */
-const createPlace = async (placeData: any) => {
+const createPlace = async (placeData: PlaceData) => {
   const response = await fetch(`${API_BASE_URL}/api/admin/places`, {
     method: 'POST',
     headers: {
@@ -83,5 +97,6 @@ export const bulkUploadPlaces = async () => {
 
 // Export for use in browser console
 if (typeof window !== 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).bulkUploadPlaces = bulkUploadPlaces;
 }

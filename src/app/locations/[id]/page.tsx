@@ -32,8 +32,8 @@ export default function LocationDetail({ params }: Props) {
       setError(null);
       const place = await apiService.getPlaceBySlug(resolvedParams.id); // Using slug instead of ID
       setLocation(place);
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message?.includes('not found')) {
         notFound();
       } else {
         setError("Không thể tải thông tin địa điểm. Vui lòng thử lại sau.");
