@@ -245,6 +245,32 @@ class ApiService {
     return this.getPlaces({ limit });
   }
 
+  // Search locations by query
+  async getLocations(params?: {
+    search?: string;
+    limit?: number;
+  }): Promise<{ data: Location[] }> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const url = `${this.baseUrl}/api/places${queryParams.toString() ? `?${queryParams}` : ""}`;
+    const result = await this.fetchWithError(url);
+    
+    // Transform PlaceSummary to Location for backward compatibility
+    const locations: Location[] = (result || []).map((place: PlaceSummary) => ({
+      ...place,
+      location: place.district || "",
+      image: place.cover_image_url || "",
+      rating: place.average_rating || 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+    
+    return { data: locations };
+  }
+
   // Get place details by slug
   async getPlaceBySlug(slug: string, token?: string): Promise<PlaceDetail> {
     if (!slug) {
