@@ -14,6 +14,7 @@ export interface PlaceSummary {
   district: string | null;         // District name
   cover_image_url: string | null;  // Main image URL
   is_featured?: boolean;           // Featured flag (optional in summary)
+  average_rating?: number | null;  // Average rating (optional in summary)
 }
 
 // Place image interface
@@ -40,9 +41,12 @@ export interface PlaceDetail {
   contact_info?: string | null;    // Contact details
   tips_notes?: string | null;      // Visitor tips
   is_featured: boolean;            // Featured flag
+  average_rating?: number | null;  // Average rating
+  visited?: boolean;               // Whether current user has visited (for authenticated users)
   created_at: Date;                // Creation timestamp
   updated_at: Date;                // Last update timestamp
   images: PlaceImage[];            // Array of images
+  reviews?: Review[];              // Array of reviews
 }
 
 // Legacy interfaces for backward compatibility
@@ -79,6 +83,66 @@ export interface CreatePlaceDto {
   isFeatured?: boolean;             // camelCase to match backend (default: false)
 }
 
+// Auth interfaces
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  role: "USER" | "ADMIN";
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+}
+
+export interface RegisterDto {
+  email: string;
+  password: string;
+  fullName: string;
+}
+
+export interface LoginDto {
+  email: string;
+  password: string;
+}
+
+// Review interfaces
+export interface Review {
+  id: string;
+  placeId: string;
+  userId: string;
+  rating: number;
+  comment: string;
+  createdAt?: string;
+  created_at?: string;
+  user?: {
+    full_name: string;
+  };
+}
+
+export interface CreateReviewDto {
+  rating: number;
+  comment: string;
+}
+
+// Visit history interfaces
+export interface VisitHistory {
+  place: {
+    id: string;
+    name: string;
+    slug: string;
+    coverImageUrl?: string;
+    cover_image_url?: string;
+  };
+  visitedAt: string;
+}
+
+export interface CreateVisitDto {
+  placeId: string;
+}
+
 export interface LocationsResponse {
   status: string;
   data: Location[];
@@ -113,17 +177,36 @@ class ApiService {
 
   private async fetchWithError(url: string, options?: RequestInit) {
     try {
+      const finalHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(options?.headers as Record<string, string>),
+      };
+
+      // Debug: Log Authorization header
+      if (finalHeaders["Authorization"]) {
+        console.log("Authorization header present:", finalHeaders["Authorization"].substring(0, 20) + "...");
+      }
+
       const response = await fetch(url, {
         ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...options?.headers,
-        },
+        headers: finalHeaders,
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "An error occurred");
+        const errorMsg = error.message || error.error || `HTTP ${response.status}: ${response.statusText}`;
+        
+        // Debug 403 errors specifically
+        if (response.status === 403) {
+          console.error("403 Forbidden - Token issue:", {
+            status: response.status,
+            message: errorMsg,
+            url: url,
+            headers: finalHeaders,
+          });
+        }
+        
+        throw new Error(errorMsg);
       }
 
       // Handle 204 No Content
@@ -163,41 +246,18 @@ class ApiService {
   }
 
   // Get place details by slug
-  async getPlaceBySlug(slug: string): Promise<PlaceDetail> {
+  async getPlaceBySlug(slug: string, token?: string): Promise<PlaceDetail> {
     if (!slug) {
       throw new Error('Slug is required');
     }
-    return this.fetchWithError(`${this.baseUrl}/api/places/${slug}`);
-  }
 
-  // Legacy methods for backward compatibility
-  async getLocations(params?: {
-    search?: string;
-    minRating?: number;
-    page?: number;
-    limit?: number;
-  }): Promise<LocationsResponse> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.search) queryParams.append("search", params.search);
-    if (params?.minRating) queryParams.append("minRating", params.minRating.toString());
-    if (params?.page) queryParams.append("page", params.page.toString());
-    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
 
-    const url = `${this.baseUrl}/api/locations${queryParams.toString() ? `?${queryParams}` : ""}`;
-    return this.fetchWithError(url);
-  }
-
-  // Get single location by ID (legacy)
-  async getLocationById(id: number): Promise<LocationResponse> {
-    return this.fetchWithError(`${this.baseUrl}/api/locations/${id}`);
-  }
-
-  // Create new location (legacy)
-  async createLocation(data: CreateLocationDto): Promise<LocationResponse> {
-    return this.fetchWithError(`${this.baseUrl}/api/locations`, {
-      method: "POST",
-      body: JSON.stringify(data),
+    return this.fetchWithError(`${this.baseUrl}/api/places/${slug}`, {
+      headers,
     });
   }
 
@@ -210,24 +270,57 @@ class ApiService {
     return response;
   }
 
-  // Update location (legacy)
-  async updateLocation(id: number, data: Partial<CreateLocationDto>): Promise<LocationResponse> {
-    return this.fetchWithError(`${this.baseUrl}/api/locations/${id}`, {
-      method: "PUT",
+  // ============ AUTH ENDPOINTS ============
+  
+  // Register new user
+  async register(data: RegisterDto): Promise<AuthResponse> {
+    return this.fetchWithError(`${this.baseUrl}/api/auth/register`, {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  // Delete location (legacy)
-  async deleteLocation(id: number): Promise<void> {
-    return this.fetchWithError(`${this.baseUrl}/api/locations/${id}`, {
-      method: "DELETE",
+  // Login user
+  async login(data: LoginDto): Promise<AuthResponse> {
+    return this.fetchWithError(`${this.baseUrl}/api/auth/login`, {
+      method: "POST",
+      body: JSON.stringify(data),
     });
   }
 
-  // Get statistics (legacy)
-  async getStatistics(): Promise<StatisticsResponse> {
-    return this.fetchWithError(`${this.baseUrl}/api/locations/statistics`);
+  // ============ REVIEW ENDPOINTS ============
+
+  // Create review for a place
+  async createReview(placeId: string, data: CreateReviewDto, token: string): Promise<Review> {
+    return this.fetchWithError(`${this.baseUrl}/api/places/${placeId}/reviews`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ============ VISIT HISTORY ENDPOINTS ============
+
+  // Mark place as visited
+  async markPlaceVisited(placeId: string, token: string): Promise<{ message: string }> {
+    return this.fetchWithError(`${this.baseUrl}/api/me/visits`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ placeId }),
+    });
+  }
+
+  // Get user's visit history
+  async getVisitHistory(token: string): Promise<VisitHistory[]> {
+    return this.fetchWithError(`${this.baseUrl}/api/me/visits`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
   }
 }
 

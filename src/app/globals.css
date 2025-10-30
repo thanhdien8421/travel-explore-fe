@@ -146,3 +146,45 @@ html {
 .shadow-2xl {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
+
+/* Z-index stacking control */
+/* Keep navbar sticky at top */
+nav {
+  z-index: 100 !important;
+  /* Keep sticky positioning intact */
+}
+
+/* Auth modals should be above navbar */
+[role="dialog"],
+.fixed.inset-0 {
+  z-index: 1000 !important;
+}
+
+/* Suppress iframes (maps) z-index */
+iframe {
+  z-index: 1 !important;
+}
+
+/* Leaflet map container controls */
+.leaflet-container {
+  z-index: 1 !important;
+}
+
+.leaflet-pane,
+.leaflet-popup {
+  z-index: 1 !important;
+}
+
+.leaflet-control {
+  z-index: 2 !important;
+}
+
+/* Ensure modals and backdrops work properly */
+.fixed.inset-0.z-\[99999\] {
+  z-index: 999 !important;
+}
+
+.relative.z-\[10000\] {
+  z-index: 1000 !important;
+}
+

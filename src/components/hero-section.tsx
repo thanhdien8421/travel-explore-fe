@@ -21,6 +21,11 @@ export default function HeroSection() {
             setLoading(true);
             setError(null);
             const places = await apiService.getFeaturedPlaces(6); // Get 6 featured places
+            console.log("Hero - Featured places:", places);
+            if (places.length > 0) {
+              console.log("Hero - First place data:", places[0]);
+              console.log("Hero - First place average_rating:", places[0].average_rating);
+            }
             setFeaturedPlaces(places);
         } catch (err) {
             setError("Không thể tải địa điểm nổi bật");
@@ -157,12 +162,23 @@ export default function HeroSection() {
                     {/* Card overlays the image, fills right column */}
                     <div className="absolute inset-0 flex items-end">
                         <div className="bg-[rgba(0,0,0,0.5)] shadow-xl p-8 w-full mb-0">
-                            <h3
-                                className="text-2xl font-bold text-gray-50 mb-2"
-                                style={{ fontFamily: "'Playfair Display', serif" }}
-                            >
-                                {currentPlace.name}
-                            </h3>
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                                <h3
+                                    className="text-2xl font-bold text-gray-50"
+                                    style={{ fontFamily: "'Playfair Display', serif" }}
+                                >
+                                    {currentPlace.name}
+                                </h3>
+                                {/* Rating badge */}
+                                {currentPlace.average_rating !== undefined && currentPlace.average_rating !== null && (
+                                  <div className="flex items-center gap-1 bg-[rgba(255,255,0,0.3)] backdrop-blur-sm text-yellow-500 px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0">
+                                    <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20">
+                                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                    {currentPlace.average_rating.toFixed(1)}
+                                  </div>
+                                )}
+                            </div>
                             <p className="text-gray-50 mb-3">{currentPlace.description || "Khám phá địa điểm tuyệt vời này"}</p>
                             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-50 mb-4">
                                 <span>{currentPlace.district || "TP. Hồ Chí Minh"}</span>

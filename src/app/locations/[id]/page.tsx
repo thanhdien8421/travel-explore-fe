@@ -6,7 +6,10 @@ import Image from "next/image";
 import Link from "next/link";
 import NavBar from "@/components/nav-bar";
 import LocationMap from "@/components/location-map";
-import { apiService, PlaceDetail } from "@/lib/api";
+import ReviewModal from "@/components/review/review-modal";
+import ExpandableReviewCard from "@/components/review/expandable-review-card";
+import { apiService, PlaceDetail, Review } from "@/lib/api";
+import { useAuth } from "@/contexts/auth-context";
 import { generateMapUrls } from "@/lib/geo-utils";
 import { getImageUrl } from "@/lib/image-utils";
 
@@ -17,10 +20,14 @@ interface Props {
 export default function LocationDetail({ params }: Props) {
   const router = useRouter();
   const resolvedParams = use(params);
+  const { isAuthenticated, token } = useAuth();
   const [location, setLocation] = useState<PlaceDetail | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isMarkingVisit, setIsMarkingVisit] = useState(false);
 
   useEffect(() => {
     fetchLocation();
@@ -30,8 +37,15 @@ export default function LocationDetail({ params }: Props) {
     try {
       setLoading(true);
       setError(null);
-      const place = await apiService.getPlaceBySlug(resolvedParams.id); // Using slug instead of ID
+      const place = await apiService.getPlaceBySlug(resolvedParams.id, token || undefined);
+      console.log("Place detail fetched:", place);
+      console.log("Is authenticated:", isAuthenticated);
+      console.log("Place visited status:", place.visited);
       setLocation(place);
+      // Set reviews from place detail if available
+      if (place.reviews) {
+        setReviews(place.reviews);
+      }
     } catch (err: unknown) {
       if (err instanceof Error && err.message?.includes('not found')) {
         notFound();
@@ -41,6 +55,21 @@ export default function LocationDetail({ params }: Props) {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const markAsVisited = async () => {
+    if (!location || !isAuthenticated || !token) return;
+    
+    try {
+      setIsMarkingVisit(true);
+      await apiService.markPlaceVisited(location.id, token);
+      // Update the location object to reflect the visit
+      setLocation({ ...location, visited: true });
+    } catch (err) {
+      console.error("Error marking place as visited:", err);
+    } finally {
+      setIsMarkingVisit(false);
     }
   };
 
@@ -149,17 +178,36 @@ export default function LocationDetail({ params }: Props) {
             </Link>
             
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {isAuthenticated && (
+                <button 
+                  onClick={markAsVisited}
+                  disabled={isMarkingVisit || location?.visited}
+                  title={location?.visited ? "Đã ghi nhận ghé thăm" : "Ghi nhận địa điểm đã ghé thăm"}
+                  className={`p-2 rounded-lg transition-colors ${
+                    location?.visited
+                      ? "bg-green-600 text-green-50"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+              )}
+
+              <button 
+                title="Chia sẻ"
+                className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
-                <span className="hidden sm:inline">Chia sẻ</span>
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button 
+                title="Lưu"
+                className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                 </svg>
-                <span className="hidden sm:inline">Lưu</span>
               </button>
             </div>
           </div>
@@ -312,21 +360,91 @@ export default function LocationDetail({ params }: Props) {
               )}
             </section>
 
-            {/* Reviews Section (Placeholder) */}
+            {/* Reviews Section */}
             <section className="bg-white rounded-lg shadow-sm p-6">
-              <h2 
-                className="text-2xl font-bold text-gray-900 mb-4"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
-                Đánh giá
-              </h2>
-              <div className="text-center py-12 bg-gray-50 rounded-lg">
-                <svg className="mx-auto mb-4 w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <p className="text-gray-500">Tính năng đánh giá sẽ sớm ra mắt</p>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <h2 
+                    className="text-2xl font-bold text-gray-900"
+                    style={{ fontFamily: "'Playfair Display', serif" }}
+                  >
+                    Đánh giá
+                  </h2>
+                  {typeof location.average_rating === 'number' && (
+                    <div className="flex items-center gap-2 bg-yellow-50 px-3 py-1 rounded-full">
+                      <svg className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      <span className="font-semibold text-yellow-800">{location.average_rating.toFixed(1)}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {isAuthenticated && (
+                  <button
+                    onClick={() => setIsReviewOpen(true)}
+                    title="Viết đánh giá"
+                    className="p-2 rounded-lg text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                )}
               </div>
+
+              {reviews && reviews.length > 0 ? (
+                <div className="space-y-4 max-h-[800px] overflow-y-auto pr-4">
+                  {reviews
+                    .sort((a, b) => {
+                      const dateA = new Date(a.created_at || a.createdAt || "").getTime();
+                      const dateB = new Date(b.created_at || b.createdAt || "").getTime();
+                      return dateB - dateA;
+                    })
+                    .map((review) => (
+                      <ExpandableReviewCard key={review.id} review={review} />
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                  <svg className="mx-auto mb-4 w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <p className="text-gray-500 mb-4">Chưa có đánh giá nào</p>
+                  {isAuthenticated && (
+                    <button
+                      onClick={() => setIsReviewOpen(true)}
+                      className="text-blue-600 font-semibold hover:text-blue-700 transition-colors"
+                    >
+                      Hãy là người đầu tiên đánh giá
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {!isAuthenticated && (
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                  <p className="text-blue-800 text-sm">
+                    Vui lòng <Link href="/" onClick={() => {}} className="font-semibold hover:underline">đăng nhập</Link> để viết đánh giá
+                  </p>
+                </div>
+              )}
             </section>
+
+            {/* Review Modal */}
+            {location && (
+              <ReviewModal
+                isOpen={isReviewOpen}
+                onClose={() => setIsReviewOpen(false)}
+                placeId={location.id}
+                placeName={location.name}
+                onReviewSubmitted={() => {
+                  // Refresh location to get new reviews
+                  fetchLocation();
+                  setIsReviewOpen(false);
+                }}
+              />
+            )}
 
           </div>
 

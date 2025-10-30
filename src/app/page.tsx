@@ -24,6 +24,8 @@ export default function HomePage() {
       setLoading(true);
       setError(null);
       const places = await apiService.getFeaturedPlaces(12); // Get featured places for carousel
+      console.log("Featured places:", places);
+      console.log("First place:", places[0]);
       setLocations(places);
     } catch (err) {
       setError("Không thể tải danh sách địa điểm. Vui lòng thử lại sau.");
