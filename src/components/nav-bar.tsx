@@ -81,7 +81,7 @@ export default function NavBar({ onSearchClick }: NavBarProps) {
                                     href="/profile"
                                     className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
                                 >
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-xs">
+                                    <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
                                         {user.fullName?.charAt(0).toUpperCase() || "U"}
                                     </div>
                                     <span className="text-sm font-semibold text-gray-700">

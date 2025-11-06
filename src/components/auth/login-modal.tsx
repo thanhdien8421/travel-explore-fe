@@ -60,7 +60,7 @@ export default function LoginModal({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-6 right-6 text-gray-700 hover:text-gray-600 transition-colors"
         >
           <svg
             className="w-6 h-6"
@@ -143,11 +143,12 @@ export default function LoginModal({
                     />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
-                      fillRule="evenodd"
-                      d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-14-14zM11 5.5a3 3 0 00-2.85 4.358l3.708-3.708A3 3 0 0011 5.5zM5.5 11a3.5 3.5 0 005.708 2.885l-2.293-2.292a1.5 1.5 0 01-3.415-1.5V11z"
-                      clipRule="evenodd"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
                     />
                   </svg>
                 )}
@@ -163,7 +164,10 @@ export default function LoginModal({
           >
             {loading ? (
               <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <div className="relative w-5 h-5">
+                  <div className="absolute inset-0 rounded-full border-2 border-gray-300"></div>
+                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-white border-r-white animate-spin"></div>
+                </div>
                 <span>Đang đăng nhập...</span>
               </>
             ) : (
@@ -187,8 +191,6 @@ export default function LoginModal({
 
         {/* Divider */}
         <div className="my-6 flex items-center">
-          <div className="flex-1 border-t border-gray-300"></div>
-          <span className="px-4 text-gray-400 text-sm">hoặc</span>
           <div className="flex-1 border-t border-gray-300"></div>
         </div>
 

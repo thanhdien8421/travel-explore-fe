@@ -79,7 +79,10 @@ export default function LocationDetail({ params }: Props) {
         <NavBar />
         <div className="max-w-7xl mx-auto py-20 px-4">
           <div className="flex flex-col items-center justify-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-800 mb-4"></div>
+            <div className="relative w-16 h-16 mb-4">
+              <div className="absolute inset-0 rounded-full border-4 border-gray-300"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-gray-700 border-r-gray-700 animate-spin"></div>
+            </div>
             <p className="text-gray-600">Đang tải thông tin địa điểm...</p>
           </div>
         </div>

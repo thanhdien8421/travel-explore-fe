@@ -149,9 +149,12 @@ export default function SupabaseImageUpload({
             className="w-full h-48 object-cover rounded-lg border"
           />
           {isUploading && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-              <span className="ml-2 text-white text-sm">Đang upload...</span>
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg gap-2">
+              <div className="relative w-8 h-8">
+                <div className="absolute inset-0 rounded-full border-2 border-gray-300"></div>
+                <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-white border-r-white animate-spin"></div>
+              </div>
+              <span className="text-white text-sm">Đang upload...</span>
             </div>
           )}
           <button

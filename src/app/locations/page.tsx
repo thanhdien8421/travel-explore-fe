@@ -62,16 +62,16 @@ export default function LocationsPage() {
 
             {/* Header */}
             <header className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 py-12">
-                    <div className="text-center mb-8">
+                <div className="max-w-7xl mx-auto px-4 py-6 sm:py-12">
+                    <div className="text-center mb-6 sm:mb-8">
                         <h1
-                            className="text-4xl md:text-5xl font-bold text-gray-900 mb-4"
+                            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4"
                             style={{ fontFamily: "'Playfair Display', serif" }}
                         >
                             Chưa tìm được địa điểm mong muốn?
                         </h1>
-                        <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                            Hãy khám phá bộ sưu tập đầy đủ các địa điểm tuyệt vời tại TP. Hồ Chí Minh dưới đây. <br />
+                        <p className="text-xs sm:text-sm md:text-base lg:text-lg text-gray-600 max-w-3xl mx-auto px-2">
+                            Hãy khám phá bộ sưu tập đầy đủ các địa điểm tuyệt vời tại TP. Hồ Chí Minh dưới đây. <br className="hidden sm:block" />
                             Từ những điểm tham quan nổi tiếng đến những viên ngọc ẩn giấu đang chờ bạn khám phá.
                         </p>
                     </div>
@@ -79,34 +79,34 @@ export default function LocationsPage() {
                     {/* Search Button */}
                     <button
                         onClick={() => setIsSearchOpen(true)}
-                        className="w-full max-w-3xl mx-auto flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-200 rounded-full hover:border-gray-400 hover:shadow-lg transition-all duration-300 text-left"
+                        className="w-full max-w-3xl mx-auto flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 sm:py-4 bg-white border-2 border-gray-200 rounded-full hover:border-gray-400 hover:shadow-lg transition-all duration-300 text-left"
                     >
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <span className="text-gray-500 text-lg">Tìm kiếm địa điểm, điểm tham quan hoặc trải nghiệm...</span>
+                        <span className="text-gray-500 text-xs sm:text-sm md:text-base lg:text-lg truncate">Tìm kiếm địa điểm, điểm tham quan hoặc trải nghiệm...</span>
                     </button>
                 </div>
             </header>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 py-8">
+            <main className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
                 {/* Results Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4 sm:gap-0">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                             {searchQuery ? `Kết quả tìm kiếm cho "${searchQuery}"` : "Tất cả địa điểm"}
                         </h2>
                         {!loading && !error && (
-                            <p className="text-gray-600 mt-2">
+                            <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">
                                 {locations.length} địa điểm được tìm thấy
                             </p>
                         )}
                     </div>
 
                     {/* Filter Options */}
-                    <div className="flex items-center space-x-4">
-                        <select className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
+                        <select className="border border-gray-300 rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white">
                             <option value="">Tất cả danh mục</option>
                             <option value="tourist">Du lịch</option>
                             <option value="food">Ẩm thực</option>
@@ -114,7 +114,7 @@ export default function LocationsPage() {
                             <option value="shopping">Mua sắm</option>
                         </select>
 
-                        <select className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white">
+                        <select className="border border-gray-300 rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white">
                             {/* <option value="rating">Đánh giá cao nhất</option> */}
                             <option value="name">Tên A-Z</option>
                             <option value="newest">Mới nhất</option>
@@ -125,11 +125,11 @@ export default function LocationsPage() {
                 {/* Loading State */}
                 {loading && (
                     <div className="flex flex-col items-center justify-center py-20">
-                        <div className="relative">
-                            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-800"></div>
-                            <div className="animate-ping absolute top-0 left-0 w-16 h-16 rounded-full bg-gray-800 opacity-20"></div>
+                        <div className="relative w-20 h-20">
+                            <div className="absolute inset-0 rounded-full border-4 border-gray-300"></div>
+                            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-gray-700 border-r-gray-700 animate-spin"></div>
                         </div>
-                        <p className="text-gray-600 mt-4 text-lg">Đang tải địa điểm...</p>
+                        <p className="text-gray-600 mt-4 text-sm sm:text-base lg:text-lg">Đang tải địa điểm...</p>
                     </div>
                 )}
 

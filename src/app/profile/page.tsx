@@ -26,20 +26,20 @@ export default function ProfilePage() {
 
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
-        <div className="max-w-4xl mx-auto px-4 py-12">
-          <div className="flex items-center gap-6">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-3xl">
+        <div className="max-w-4xl mx-auto px-4 py-6 sm:py-12">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+            <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-full bg-indigo-500 flex flex-shrink-0 items-center justify-center text-white font-bold text-2xl sm:text-3xl">
               {user.fullName?.charAt(0).toUpperCase() || "U"}
             </div>
-            <div>
+            <div className="flex-grow">
               <h1
-                className="text-3xl font-bold text-gray-900"
+                className="text-2xl sm:text-3xl font-bold text-gray-900"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
                 {user.fullName}
               </h1>
-              <p className="text-gray-600">{user.email}</p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm sm:text-base text-gray-600 break-all">{user.email}</p>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">
                 {user.role === "ADMIN" ? "Quản trị viên" : "Người dùng thường"}
               </p>
             </div>
@@ -48,18 +48,18 @@ export default function ProfilePage() {
       </div>
 
       {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 py-12">
-        <div className="space-y-8">
+      <main className="max-w-4xl mx-auto px-4 py-6 sm:py-12">
+        <div className="space-y-6 sm:space-y-8">
           {/* Visit History Section */}
           <section>
-            <div className="mb-6">
+            <div className="mb-4 sm:mb-6">
               <h2
-                className="text-2xl font-bold text-gray-900 mb-2"
+                className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
                 Lịch sử ghé thăm
               </h2>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600">
                 Danh sách các địa điểm bạn đã ghé thăm
               </p>
             </div>
@@ -67,17 +67,17 @@ export default function ProfilePage() {
           </section>
 
           {/* Account Info Section */}
-          <section className="bg-white rounded-2xl shadow-md p-8">
-            <div className="mb-6">
+          <section className="bg-white rounded-2xl shadow-md p-4 sm:p-8">
+            <div className="mb-4 sm:mb-6">
               <h2
-                className="text-2xl font-bold text-gray-900"
+                className="text-xl sm:text-2xl font-bold text-gray-900"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
                 Thông tin tài khoản
               </h2>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Full Name */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
