@@ -1,13 +1,15 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { notFound, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import NavBar from "@/components/nav-bar";
+import NotFoundUI from "@/components/not-found-ui";
 import LocationMap from "@/components/location-map";
 import ReviewModal from "@/components/review/review-modal";
 import ExpandableReviewCard from "@/components/review/expandable-review-card";
+import { LocationSkeleton } from "@/components/skeleton/location-skeleton";
 import { apiService, PlaceDetail, Review } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { generateMapUrls } from "@/lib/geo-utils";
@@ -20,18 +22,28 @@ interface Props {
 export default function LocationDetail({ params }: Props) {
   const router = useRouter();
   const resolvedParams = use(params);
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated, token, user } = useAuth();
   const [location, setLocation] = useState<PlaceDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isMarkingVisit, setIsMarkingVisit] = useState(false);
+  const [isNotFound, setIsNotFound] = useState(false);
 
+  // Fetch location data
   useEffect(() => {
     fetchLocation();
   }, [resolvedParams.id]);
+
+  // Fetch reviews when reviews section comes into view or after location loads
+  useEffect(() => {
+    if (location && location.slug) {
+      fetchReviews();
+    }
+  }, [location?.slug]);
 
   const fetchLocation = async () => {
     try {
@@ -42,19 +54,32 @@ export default function LocationDetail({ params }: Props) {
       console.log("Is authenticated:", isAuthenticated);
       console.log("Place visited status:", place.visited);
       setLocation(place);
-      // Set reviews from place detail if available
-      if (place.reviews) {
-        setReviews(place.reviews);
-      }
     } catch (err: unknown) {
-      if (err instanceof Error && err.message?.includes('not found')) {
-        notFound();
+      if (err instanceof Error && (err.message?.includes('not found') || err.message?.includes('Place not found'))) {
+        // Show not-found UI for invalid slug
+        console.log(`Place not found: ${resolvedParams.id}`);
+        setIsNotFound(true);
       } else {
         setError("Không thể tải thông tin địa điểm. Vui lòng thử lại sau.");
         console.error("Error fetching location:", err);
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReviews = async () => {
+    if (!location) return;
+    
+    try {
+      setReviewsLoading(true);
+      const fetchedReviews = await apiService.getPlaceReviews(location.slug);
+      setReviews(fetchedReviews);
+    } catch (err) {
+      console.error("Error fetching reviews:", err);
+      // Don't show error, just skip reviews
+    } finally {
+      setReviewsLoading(false);
     }
   };
 
@@ -74,19 +99,16 @@ export default function LocationDetail({ params }: Props) {
   };
 
   if (loading) {
+    return <LocationSkeleton />;
+  }
+
+  if (isNotFound) {
     return (
-      <div className="min-h-screen bg-[rgb(252,252,252)]">
-        <NavBar />
-        <div className="max-w-7xl mx-auto py-20 px-4">
-          <div className="flex flex-col items-center justify-center">
-            <div className="relative w-16 h-16 mb-4">
-              <div className="absolute inset-0 rounded-full border-4 border-gray-300"></div>
-              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-gray-700 border-r-gray-700 animate-spin"></div>
-            </div>
-            <p className="text-gray-600">Đang tải thông tin địa điểm...</p>
-          </div>
-        </div>
-      </div>
+      <NotFoundUI 
+        title="Địa điểm không tìm thấy"
+        description="Xin lỗi, địa điểm bạn tìm kiếm không tồn tại hoặc đã bị xóa. Hãy khám phá các địa điểm khác thú vị hơn."
+        showNavBar={true}
+      />
     );
   }
 
@@ -99,7 +121,7 @@ export default function LocationDetail({ params }: Props) {
             <svg className="w-16 h-16 text-red-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            <p className="text-red-800 mb-4 text-lg font-semibold">{error || "Không tìm thấy địa điểm"}</p>
+            <p className="text-red-800 mb-4 text-lg font-semibold">{error || "Không thể tải địa điểm"}</p>
             <button
               onClick={() => router.push("/")}
               className="bg-gray-800 text-white px-6 py-2 rounded-lg hover:bg-gray-900 transition-colors"
@@ -113,8 +135,20 @@ export default function LocationDetail({ params }: Props) {
   }
 
   // Use images from the place detail or fallback to cover image
+  // Sort images to put cover image first
   const galleryImages = location.images && location.images.length > 0 
-    ? location.images.map(img => ({ ...img, image_url: getImageUrl(img.image_url) }))
+    ? (() => {
+        const processedImages = location.images.map(img => ({ 
+          ...img, 
+          image_url: getImageUrl(img.image_url) 
+        }));
+        // Sort so cover image comes first
+        return processedImages.sort((a, b) => {
+          const aIsCover = a.is_cover ? 1 : 0;
+          const bIsCover = b.is_cover ? 1 : 0;
+          return bIsCover - aIsCover;
+        });
+      })()
     : location.cover_image_url 
       ? [{ id: 'cover', image_url: getImageUrl(location.cover_image_url), caption: location.name }]
       : [{ id: 'placeholder', image_url: '/images/placeholder.png', caption: location.name }];
@@ -126,7 +160,7 @@ export default function LocationDetail({ params }: Props) {
       {/* Header Section with Hero Image */}
       <div className="relative h-[60vh] min-h-[400px] max-h-[600px] w-full">
         <Image
-          src={getImageUrl(location.cover_image_url)}
+          src={galleryImages[0].image_url}
           alt={location.name}
           fill
           className="object-cover"
@@ -181,6 +215,18 @@ export default function LocationDetail({ params }: Props) {
             </Link>
             
             <div className="flex items-center gap-3">
+              {isAuthenticated && user?.role === "ADMIN" && (
+                <Link
+                  href={`/admin/locations/${location.id}/edit`}
+                  title="Chỉnh sửa địa điểm"
+                  className="p-2 rounded-lg text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </Link>
+              )}
+
               {isAuthenticated && (
                 <button 
                   onClick={markAsVisited}
@@ -373,12 +419,16 @@ export default function LocationDetail({ params }: Props) {
                   >
                     Đánh giá
                   </h2>
-                  {typeof location.average_rating === 'number' && (
+                  {typeof location.average_rating === 'number' && location.average_rating > 0 ? (
                     <div className="flex items-center gap-2 bg-yellow-50 px-3 py-1 rounded-full">
                       <svg className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                       </svg>
                       <span className="font-semibold text-yellow-800">{location.average_rating.toFixed(1)}</span>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Chưa có đánh giá
                     </div>
                   )}
                 </div>
@@ -396,7 +446,25 @@ export default function LocationDetail({ params }: Props) {
                 )}
               </div>
 
-              {reviews && reviews.length > 0 ? (
+              {reviewsLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="border border-gray-200 rounded-lg p-4 animate-pulse">
+                      <div className="flex gap-3 mb-3">
+                        <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-gray-200 rounded w-24"></div>
+                          <div className="h-3 bg-gray-200 rounded w-16"></div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded"></div>
+                        <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : reviews && reviews.length > 0 ? (
                 <div className="space-y-4 max-h-[800px] overflow-y-auto pr-4">
                   {reviews
                     .sort((a, b) => {
@@ -442,8 +510,8 @@ export default function LocationDetail({ params }: Props) {
                 placeId={location.id}
                 placeName={location.name}
                 onReviewSubmitted={() => {
-                  // Refresh location to get new reviews
-                  fetchLocation();
+                  // Refresh reviews after new review is posted
+                  fetchReviews();
                   setIsReviewOpen(false);
                 }}
               />

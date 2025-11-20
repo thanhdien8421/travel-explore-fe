@@ -13,7 +13,6 @@ interface NavBarProps {
 
 export default function NavBar({ onSearchClick }: NavBarProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isRegisterOpen, setIsRegisterOpen] = useState(false);
     const { isAuthenticated, user, logout } = useAuth();
@@ -22,9 +21,9 @@ export default function NavBar({ onSearchClick }: NavBarProps) {
     const navigation = [
         { name: "Trang chủ", href: "/", current: pathname === "/" },
         { name: "Địa điểm", href: "/locations", current: pathname.startsWith("/locations") },
-        //Tính năng này sẽ dành cho người dùng có tài khoản hoặc admin
-        // { name: "Thêm địa điểm", href: "/locations/add", current: pathname === "/locations/add" },
-        // { name: "Quản lý", href: "/admin", current: pathname === "/admin" },
+        ...(isAuthenticated && user?.role === "ADMIN"
+            ? [{ name: "Quản lý", href: "/admin", current: pathname === "/admin" }]
+            : []),
     ];
 
     return (

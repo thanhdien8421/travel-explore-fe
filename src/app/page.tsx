@@ -136,7 +136,7 @@ export default function HomePage() {
               Chưa có địa điểm nào được thêm vào hệ thống.
             </p>
             <Link
-              href="/locations/add"
+              href="/admin/locations/add"
               className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 font-medium shadow-lg"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

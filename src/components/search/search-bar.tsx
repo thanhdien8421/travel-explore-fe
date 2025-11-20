@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { apiService, PlaceSummary } from "@/lib/api";
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -10,12 +11,75 @@ interface SearchBarProps {
 export default function SearchBar({ onSearch, className = "" }: SearchBarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlaceSummary[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const handleSearch = (e: React.FormEvent) => {
+  // Load recent searches from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("recentSearches");
+    if (stored) {
+      try {
+        setRecentSearches(JSON.parse(stored));
+      } catch (e) {
+        console.error("Error parsing recent searches:", e);
+      }
+    }
+  }, []);
+
+  // Debounced search function
+  const fetchSuggestions = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await apiService.getLocations({ 
+        search: query, 
+        limit: 5 
+      });
+      setSuggestions(response.data || []);
+    } catch (err) {
+      console.error("Error fetching suggestions:", err);
+      setSuggestions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    // Debounce API call
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      fetchSuggestions(value);
+    }, 300);
+  };
+
+  const handleSearch = (e: React.FormEvent, query?: string) => {
     e.preventDefault();
-    onSearch(searchQuery);
+    const finalQuery = query || searchQuery;
+    
+    if (!finalQuery.trim()) return;
+
+    // Add to recent searches
+    const updated = [finalQuery, ...recentSearches.filter(s => s !== finalQuery)].slice(0, 5);
+    setRecentSearches(updated);
+    localStorage.setItem("recentSearches", JSON.stringify(updated));
+
+    onSearch(finalQuery);
     setIsExpanded(false);
+    setSearchQuery("");
+    setSuggestions([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -30,6 +94,9 @@ export default function SearchBar({ onSearch, className = "" }: SearchBarProps) 
       inputRef.current.focus();
     }
   }, [isExpanded]);
+
+  const showSuggestions = searchQuery.trim() && suggestions.length > 0;
+  const showRecent = !searchQuery.trim() && recentSearches.length > 0;
 
   return (
     <div className={`relative ${className}`}>
@@ -57,7 +124,7 @@ export default function SearchBar({ onSearch, className = "" }: SearchBarProps) 
             ref={inputRef}
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleInputChange}
             onFocus={() => setIsExpanded(true)}
             onKeyDown={handleKeyDown}
             placeholder="Tìm kiếm địa điểm, điểm tham quan hoặc trải nghiệm..."
@@ -67,6 +134,13 @@ export default function SearchBar({ onSearch, className = "" }: SearchBarProps) 
                 : 'border-gray-300 hover:border-gray-400'
             } text-lg`}
           />
+
+          {/* Loading Spinner */}
+          {isLoading && (
+            <div className="absolute inset-y-0 right-24 flex items-center pr-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+            </div>
+          )}
 
           {/* Search Button */}
           <div className="absolute inset-y-0 right-0 flex items-center">
@@ -79,38 +153,67 @@ export default function SearchBar({ onSearch, className = "" }: SearchBarProps) 
           </div>
         </div>
 
-        {/* Expanded Search Suggestions */}
-        {isExpanded && (
+        {/* Dropdown Suggestions & Recent Searches */}
+        {isExpanded && (showSuggestions || showRecent) && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl z-50">
             <div className="p-4">
-              <div className="text-sm text-gray-600 mb-3">Tìm kiếm phổ biến</div>
-              <div className="space-y-2">
-                {[
-                  "Chợ Bến Thành",
-                  "Địa đạo Củ Chi", 
-                  "Nhà thờ Đức Bà",
-                  "Dinh Độc Lập",
-                  "Chùa Jade Emperor"
-                ].map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    onClick={() => {
-                      setSearchQuery(suggestion);
-                      onSearch(suggestion);
-                      setIsExpanded(false);
-                    }}
-                    className="block w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-700"
-                  >
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      {suggestion}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {/* API Suggestions */}
+              {showSuggestions && (
+                <>
+                  <div className="text-sm text-gray-600 mb-3 font-semibold">Kết quả tìm kiếm</div>
+                  <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
+                    {suggestions.map((place) => (
+                      <button
+                        key={place.id}
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                          e.preventDefault();
+                          handleSearch(e as unknown as React.FormEvent<HTMLFormElement>, place.name);
+                        }}
+                        className="block w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-start gap-3">
+                          <svg className="w-4 h-4 mt-0.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-900 truncate">{place.name}</div>
+                            <div className="text-sm text-gray-500 truncate">{place.ward}</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Recent Searches */}
+              {showRecent && (
+                <>
+                  <div className="text-sm text-gray-600 mb-3 font-semibold">Lịch sử tìm kiếm</div>
+                  <div className="space-y-2">
+                    {recentSearches.map((search, idx) => (
+                      <button
+                        key={idx}
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                          e.preventDefault();
+                          handleSearch(e as unknown as React.FormEvent<HTMLFormElement>, search);
+                        }}
+                        className="block w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-gray-700">{search}</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

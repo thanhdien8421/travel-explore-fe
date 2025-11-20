@@ -10,11 +10,11 @@ interface LocationPickerProps {
   onAddressChange?: (address: string) => void;
 }
 
-export default function LocationPicker({ 
-  latitude, 
-  longitude, 
-  onLocationChange, 
-  onAddressChange 
+export default function LocationPicker({
+  latitude,
+  longitude,
+  onLocationChange,
+  onAddressChange
 }: LocationPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -37,7 +37,7 @@ export default function LocationPicker({
     try {
       // Dynamically import Leaflet
       const L = await import("leaflet");
-      
+
       // Fix for default markers in Leaflet with Next.js
       const iconDefault = L.Icon.Default.prototype as unknown as { _getIconUrl?: string };
       delete iconDefault._getIconUrl;
@@ -51,7 +51,7 @@ export default function LocationPicker({
         // Initialize map
         const initialLat = latitude || defaultLat;
         const initialLng = longitude || defaultLng;
-        
+
         mapRef.current = L.map(mapContainerRef.current).setView([initialLat, initialLng], 13);
 
         // Add OpenStreetMap tiles
@@ -69,12 +69,12 @@ export default function LocationPicker({
           const { lat, lng } = e.latlng;
           updateMarker(lat, lng);
           onLocationChange(lat, lng);
-          
+
           // Reverse geocoding to get address
           reverseGeocode(lat, lng);
         });
       }
-      
+
       setIsLoading(false);
     } catch (error) {
       console.error("Error loading map:", error);
@@ -84,16 +84,16 @@ export default function LocationPicker({
 
   const updateMarker = async (lat: number, lng: number) => {
     const L = await import("leaflet");
-    
+
     if (mapRef.current) {
       // Remove existing marker
       if (markerRef.current) {
         mapRef.current.removeLayer(markerRef.current);
       }
-      
+
       // Add new marker
       markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
-      
+
       // Center map on new location
       mapRef.current.setView([lat, lng], mapRef.current.getZoom());
     }
@@ -105,7 +105,7 @@ export default function LocationPicker({
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=vi`
       );
       const data = await response.json();
-      
+
       if (data.display_name && onAddressChange) {
         onAddressChange(data.display_name);
       }
@@ -116,22 +116,22 @@ export default function LocationPicker({
 
   const searchLocation = async () => {
     if (!searchQuery.trim()) return;
-    
+
     setIsSearching(true);
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&accept-language=vi&limit=1`
       );
       const data = await response.json();
-      
+
       if (data.length > 0) {
         const { lat, lon } = data[0];
         const latitude = parseFloat(lat);
         const longitude = parseFloat(lon);
-        
+
         updateMarker(latitude, longitude);
         onLocationChange(latitude, longitude);
-        
+
         if (onAddressChange) {
           onAddressChange(data[0].display_name);
         }
@@ -149,7 +149,7 @@ export default function LocationPicker({
         (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
-          
+
           updateMarker(lat, lng);
           onLocationChange(lat, lng);
           reverseGeocode(lat, lng);
@@ -170,17 +170,12 @@ export default function LocationPicker({
       <div className="space-y-3">
         {/* Search Box */}
         <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Tìm kiếm địa chỉ, địa điểm..."
-            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            className="w-full pl-4 pr-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             onKeyPress={(e) => e.key === "Enter" && searchLocation()}
           />
           <button
@@ -189,10 +184,15 @@ export default function LocationPicker({
             disabled={isSearching}
             className="absolute inset-y-0 right-0 px-4 flex items-center text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 text-sm"
           >
-            {isSearching ? "..." : "Tìm"}
+            {/* {isSearching ? "..." : "Tìm"} */}
+            <div className="absolute inset-y-0 left-0 pr-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
           </button>
         </div>
-        
+
         {/* Current Location Button */}
         <button
           type="button"
@@ -231,13 +231,13 @@ export default function LocationPicker({
             </div>
           </div>
         )}
-        
+
         <div
           ref={mapContainerRef}
           className="w-full rounded-lg border-2 border-gray-300 shadow-sm overflow-hidden"
           style={{ height: "400px" }}
         />
-        
+
         <div className="mt-3 flex items-center justify-center gap-2 text-sm text-gray-500">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

@@ -51,7 +51,7 @@ export default function LocationMap({ latitude, longitude, placeName, address }:
           // Add a marker for the place with a nice custom style
           const marker = L.marker([latitude, longitude]).addTo(map);
           
-          // Create popup content
+          // Create popup content (user can click marker to view)
           const popupContent = `
             <div class="text-center p-2">
               <h3 class="font-bold text-lg mb-2 text-gray-800">${placeName}</h3>
@@ -63,7 +63,7 @@ export default function LocationMap({ latitude, longitude, placeName, address }:
             </div>
           `;
           
-          marker.bindPopup(popupContent).openPopup();
+          marker.bindPopup(popupContent);
 
           // Add a small delay to ensure the map loads properly
           setTimeout(() => {

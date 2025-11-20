@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import AdminRouteGuard from '@/components/admin-route-guard';
 import { bulkUploadPlaces } from '@/lib/bulk-upload';
 
 export default function BulkUploadPage() {
@@ -42,8 +43,9 @@ export default function BulkUploadPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
+    <AdminRouteGuard>
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Bulk Upload Places</h1>
         
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -79,7 +81,8 @@ export default function BulkUploadPage() {
             ))}
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </AdminRouteGuard>
   );
 }

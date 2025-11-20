@@ -8,8 +8,22 @@ interface LocationCardProps {
 }
 
 export default function LocationCard({ location }: LocationCardProps) {
+  // Get cover image - prioritize images array with isCover flag
+  // This handles new locations properly
+  let imageUrl = location.cover_image_url;
+  
+  if (location.images && location.images.length > 0) {
+    const coverImage = location.images.find(img => img.is_cover);
+    if (coverImage) {
+      imageUrl = getImageUrl(coverImage.image_url);
+    } else if (location.images[0]) {
+      // Fallback to first image if no cover set
+      imageUrl = getImageUrl(location.images[0].image_url);
+    }
+  }
+  
   // Convert storage path to full CDN URL
-  const imageUrl = getImageUrl(location.cover_image_url);
+  imageUrl = getImageUrl(imageUrl);
 
   // Debug: Log location data to check if average_rating is present
   if (location.average_rating !== undefined) {
@@ -56,12 +70,16 @@ export default function LocationCard({ location }: LocationCardProps) {
               {location.name}
             </h3>
             {/* Rating badge */}
-            {location.average_rating !== undefined && location.average_rating !== null && (
+            {location.average_rating !== undefined && location.average_rating !== null && location.average_rating > 0 ? (
               <div className="flex items-center gap-1 bg-[rgba(255,255,0,0.2)] bg-opacity-90 backdrop-blur-sm text-yellow-500 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-semibold ml-1 sm:ml-2 flex-shrink-0">
                 <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
                 {location.average_rating.toFixed(1)}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-500 ml-1 sm:ml-2 flex-shrink-0">
+                Chưa có đánh giá
               </div>
             )}
           </div>

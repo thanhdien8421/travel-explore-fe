@@ -6,7 +6,8 @@ import Link from "next/link";
 import Image from "next/image";
 import AdminSidebar from "@/components/admin-sidebar";
 import LoginModal from "@/components/auth/login-modal";
-import { apiService, AdminPlacesResponse } from "@/lib/api";
+import { AdminSkeleton } from "@/components/skeleton/admin-skeleton";
+import { apiService, AdminPlacesResponse, AdminStats } from "@/lib/api";
 import { getImageUrl } from "@/lib/image-utils";
 
 interface Statistics {
@@ -25,6 +26,7 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -35,6 +37,7 @@ export default function AdminPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState<"name" | "createdAt" | "featured">("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [showDeleted, setShowDeleted] = useState(false);
 
   useEffect(() => {
     // Get token from localStorage and validate
@@ -69,13 +72,14 @@ export default function AdminPage() {
     setLoading(false);
   }, [router]);
 
-  // Fetch data function wrapped in useCallback to avoid dependency issues
-  const fetchData = useCallback(async () => {
+  // Fetch data function
+  const fetchData = async () => {
+    console.log('🔄 fetchData called');
     try {
       setTableLoading(true);
       setError(null);
       
-      // Get places with pagination, sort, and search for the table
+      // Fetch table data with pagination (fast)
       const result = await apiService.getAdminPlaces({
         search: searchQuery || undefined,
         sortBy,
@@ -84,47 +88,35 @@ export default function AdminPage() {
         limit: itemsPerPage
       }, token || "");
       
+      console.log('📊 Admin places response:', result);
+      console.log('First location:', result.data[0]);
+      
       setResponse(result);
       
-      // Fetch all places (no pagination) for accurate statistics
-      const allPlacesResult = await apiService.getAdminPlaces({
+      // Fetch stats async (non-blocking)
+      apiService.getAdminStats({
         search: searchQuery || undefined,
-        limit: 1000, // Fetch all (or up to 1000)
-        page: 1
-      }, token || "");
-      
-      // Calculate stats from all matching data (not just current page)
-      const totalLocations = allPlacesResult.pagination.total;
-      const allData = allPlacesResult.data;
-      
-      // Only count places that have ratings (averageRating > 0)
-      const placesWithRatings = allData.filter(p => Number(p.averageRating) > 0);
-      const averageRating = placesWithRatings.length > 0
-        ? (placesWithRatings.reduce((sum, p) => sum + Number(p.averageRating), 0) / placesWithRatings.length)
-        : 0;
-      const highQualityLocations = allData.filter(p => p.isFeatured).length;
-      
-      const stats = {
-        totalLocations,
-        averageRating: Math.min(5, averageRating), // Cap at 5 stars
-        highQualityLocations,
-        ratedCount: placesWithRatings.length,
-      };
-      setStatistics(stats);
+      }, token || "")
+        .then((statsData: AdminStats) => {
+          setStatistics(statsData);
+        })
+        .catch((err) => {
+          console.error("Error fetching stats:", err);
+        });
     } catch (err) {
       setError("Không thể tải dữ liệu. Vui lòng thử lại sau.");
       console.error("Error fetching data:", err);
     } finally {
       setTableLoading(false);
     }
-  }, [searchQuery, sortBy, sortOrder, currentPage, itemsPerPage, token]);
+  };
 
   // Fetch data on initial auth and when filters/pagination changes
   useEffect(() => {
     if (isAuthenticated && token) {
       fetchData();
     }
-  }, [isAuthenticated, token, fetchData]);
+  }, [isAuthenticated, token, searchQuery, sortBy, sortOrder, currentPage, itemsPerPage]);
 
   const handleLoginSuccess = () => {
     setShowLoginModal(false);
@@ -165,6 +157,25 @@ export default function AdminPage() {
     }
   };
 
+  const handleRestore = async (placeId: string) => {
+    if (!token) {
+      setError("Vui lòng đăng nhập để khôi phục địa điểm.");
+      return;
+    }
+
+    setRestoringId(placeId);
+    try {
+      await apiService.updatePlace(placeId, { isActive: true }, token);
+      // Refresh the list after restoration
+      fetchData();
+    } catch (err) {
+      setError("Không thể khôi phục địa điểm. Vui lòng thử lại sau.");
+      console.error("Error restoring location:", err);
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
   // Show loading only on first load
   if (loading && !isAuthenticated && !showLoginModal) {
     return (
@@ -201,20 +212,7 @@ export default function AdminPage() {
 
   // Show loading state for data fetch
   if (loading) {
-    return (
-      <div className="flex min-h-screen bg-gray-50">
-        <AdminSidebar />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-300"></div>
-              <div className="animate-spin absolute top-0 left-0 w-16 h-16 rounded-full border-4 border-transparent border-t-gray-700 border-r-gray-700"></div>
-            </div>
-            <p className="text-gray-600 mt-4 text-lg">Đang tải dữ liệu...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <AdminSkeleton />;
   }
 
   if (error && !response) {
@@ -263,7 +261,7 @@ export default function AdminPage() {
                 </div>
                 <div className="flex gap-3">
                   <Link
-                    href="/locations/add"
+                    href="/admin/locations/add"
                     className="bg-gray-900 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center gap-2"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -286,9 +284,9 @@ export default function AdminPage() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Tổng địa điểm</p>
+                    <p className="text-sm font-medium text-gray-500">Tổng số địa điểm</p>
                     <p className="text-3xl font-bold text-gray-900">
-                      {statistics?.totalLocations || 0}
+                      {statistics?.totalLocations || '--'}
                     </p>
                   </div>
                 </div>
@@ -304,10 +302,10 @@ export default function AdminPage() {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-500">Đánh giá trung bình</p>
                     <p className="text-3xl font-bold text-gray-900">
-                      {statistics?.averageRating.toFixed(1) || "0.0"}
+                      {statistics?.averageRating.toFixed(1) || "--"}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {statistics?.ratedCount || 0} địa điểm đã được đánh giá
+                      {statistics?.ratedCount || '--'} địa điểm đã được đánh giá
                     </p>
                   </div>
                 </div>
@@ -321,9 +319,9 @@ export default function AdminPage() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Chất lượng cao</p>
+                    <p className="text-sm font-medium text-gray-500">Địa điểm nổi bật</p>
                     <p className="text-3xl font-bold text-gray-900">
-                      {statistics?.highQualityLocations || 0}
+                      {statistics?.highQualityLocations || '--'}
                     </p>
                   </div>
                 </div>
@@ -420,12 +418,34 @@ export default function AdminPage() {
                         setSortOrder("desc");
                         setCurrentPage(1);
                         setItemsPerPage(10);
+                        setShowDeleted(false);
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-white bg-gray-500 hover:bg-gray-600 transition-colors"
                     >
                       Đặt lại
                     </button>
                   </div>
+                </div>
+                
+                {/* Show Deleted Checkbox */}
+                <div className="mt-4 flex items-center gap-3">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showDeleted}
+                      onChange={(e) => {
+                        setShowDeleted(e.target.checked);
+                        setCurrentPage(1);
+                      }}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-700">Hiển thị những địa điểm đã xóa</span>
+                  </label>
+                  {showDeleted && response?.data.some(loc => !loc.isActive) && (
+                    <span className="text-xs text-red-600 font-medium">
+                      ({response?.data.filter(loc => !loc.isActive).length} đã xóa)
+                    </span>
+                  )}
                 </div>
               </div>
             
@@ -472,18 +492,36 @@ export default function AdminPage() {
                         </td>
                       </tr>
                     ) : (
-                      response?.data.map((location) => (
+                      response?.data
+                        .filter(location => showDeleted || location.isActive)
+                        .map((location) => (
                         <tr key={location.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 overflow-hidden">
                             <div className="flex items-center min-w-0">
                               <div className="flex-shrink-0 h-16 w-16">
-                                <Image
-                                  src={getImageUrl(location.coverImageUrl)}
-                                  alt={location.name}
-                                  width={64}
-                                  height={64}
-                                  className="h-16 w-16 rounded-lg object-cover"
-                                />
+                                {(() => {
+                                  // Get cover image - prioritize images array
+                                  let imageUrl = location.coverImageUrl;
+                                  if (location.images && location.images.length > 0) {
+                                    const coverImage = location.images.find(img => img.is_cover);
+                                    if (coverImage) {
+                                      imageUrl = getImageUrl(coverImage.image_url);
+                                    } else if (location.images[0]) {
+                                      imageUrl = getImageUrl(location.images[0].image_url);
+                                    }
+                                  }
+                                  imageUrl = getImageUrl(imageUrl);
+                                  
+                                  return (
+                                    <Image
+                                      src={imageUrl}
+                                      alt={location.name}
+                                      width={64}
+                                      height={64}
+                                      className="h-16 w-16 rounded-lg object-cover"
+                                    />
+                                  );
+                                })()}
                               </div>
                               <div className="ml-4 min-w-0">
                                 <div className="text-sm font-medium text-gray-900 truncate">
@@ -501,7 +539,7 @@ export default function AdminPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4 overflow-hidden">
-                            <div className="flex items-center min-w-0">
+                            <div className="flex items-center min-w-0 gap-2">
                               {location.isFeatured ? (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 truncate">
                                   <svg className="w-3 h-3 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -512,6 +550,11 @@ export default function AdminPage() {
                               ) : (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                   Thường
+                                </span>
+                              )}
+                              {!location.isActive && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 truncate">
+                                  Đã xóa
                                 </span>
                               )}
                             </div>
@@ -525,17 +568,27 @@ export default function AdminPage() {
                                 Xem
                               </Link>
                               <button
-                                onClick={() => router.push(`/admin/places/${location.id}/edit`)}
+                                onClick={() => router.push(`/admin/locations/${location.id}/edit`)}
                                 className="text-green-600 hover:text-green-900 px-3 py-1 rounded transition-colors flex-shrink-0"
                               >
                                 Sửa
                               </button>
-                              <button
-                                onClick={() => setDeleteConfirm(location.id)}
-                                className="text-red-600 hover:text-red-900 px-3 py-1 rounded transition-colors flex-shrink-0"
-                              >
-                                Xóa
-                              </button>
+                              {location.isActive ? (
+                                <button
+                                  onClick={() => setDeleteConfirm(location.id)}
+                                  className="text-red-600 hover:text-red-900 px-3 py-1 rounded transition-colors flex-shrink-0"
+                                >
+                                  Xóa
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleRestore(location.id)}
+                                  disabled={restoringId === location.id}
+                                  className="text-green-600 hover:text-green-900 px-3 py-1 rounded transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {restoringId === location.id ? "Đang khôi phục..." : "Khôi phục"}
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -581,7 +634,7 @@ export default function AdminPage() {
 
         {/* Delete Confirmation Modal */}
         {deleteConfirm && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-[rgba(0,0,0,0.3)] flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
                 Xác nhận xóa

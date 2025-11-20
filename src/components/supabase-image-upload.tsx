@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { MdPhotoCamera } from "react-icons/md";
 import { getSupabaseClient, STORAGE_BUCKET, isSupabaseConfigured } from "@/lib/supabase";
 import { generateSlug } from "@/lib/slug";
+import Image from "next/image";
 
 interface SupabaseImageUploadProps {
   onUploadComplete: (url: string) => void;
@@ -188,10 +189,12 @@ export default function SupabaseImageUpload({
       
       {previewUrl ? (
         <div className="relative">
-          <img
+          <Image
             src={previewUrl}
+            width={500}
+            height={300}
             alt="Preview"
-            className="w-full h-48 object-cover rounded-lg border"
+            className="w-full h-92 object-cover rounded-lg border"
           />
           {isUploading && (
             <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg gap-2">

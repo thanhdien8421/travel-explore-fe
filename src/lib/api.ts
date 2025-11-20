@@ -25,6 +25,12 @@ export interface PlaceSummary {
   average_rating?: number | null;  // Average rating (optional in summary)
   latitude?: number | null;        // Latitude coordinate (for map)
   longitude?: number | null;       // Longitude coordinate (for map)
+  categories?: Array<{             // Place categories
+    id: string;
+    name: string;
+    slug: string;
+  }>;
+  images?: PlaceImage[];          // Place images array with is_cover flag
 }
 
 // Place image interface
@@ -32,6 +38,7 @@ export interface PlaceImage {
   id: string;                      // UUID
   image_url: string;               // Image URL
   caption?: string | null;         // Image caption
+  is_cover: boolean;               // Whether this is the cover image
 }
 
 // Place detail interface (for detail views)
@@ -97,6 +104,7 @@ export interface CreatePlaceDto {
   contactInfo?: string;            // Contact info
   tipsNotes?: string;              // Tips/notes
   isFeatured?: boolean;            // Featured flag (default: false)
+  isActive?: boolean;              // Active status (for restore/soft delete)
 }
 
 // Auth interfaces
@@ -151,6 +159,7 @@ export interface VisitHistory {
     slug: string;
     coverImageUrl?: string;
     cover_image_url?: string;
+    images?: PlaceImage[];
   };
   visitedAt: string;
 }
@@ -197,9 +206,11 @@ export interface AdminPlacesResponse {
     ward: string;
     coverImageUrl: string | null;
     isFeatured: boolean;
+    isActive: boolean;
     averageRating: number;
     categories: Array<{ categoryId: string; category: { id: string; name: string } }>;
     createdAt: string;
+    images?: PlaceImage[];
   }>;
   pagination: {
     page: number;
@@ -207,6 +218,13 @@ export interface AdminPlacesResponse {
     total: number;
     totalPages: number;
   };
+}
+
+export interface AdminStats {
+  totalLocations: number;
+  averageRating: number;
+  highQualityLocations: number;
+  ratedCount: number;
 }
 
 export interface LocationResponse {
@@ -340,11 +358,18 @@ class ApiService {
   // Search locations by query (legacy - for backward compatibility)
   async getLocations(params?: {
     search?: string;
+    q?: string;
+    category?: string;
+    sortBy?: string;
     limit?: number;
-  }): Promise<{ data: Location[] }> {
+    page?: number;
+  }): Promise<{ data: Location[]; total: number }> {
     const result = await this.searchPlaces({
-      q: params?.search,
-      limit: params?.limit || 10,
+      q: params?.search || params?.q,
+      category: params?.category,
+      sortBy: params?.sortBy,
+      limit: params?.limit || 12,
+      page: params?.page || 1,
     });
     
     // Transform PlaceSummary to Location for backward compatibility
@@ -357,7 +382,24 @@ class ApiService {
       updatedAt: new Date().toISOString(),
     }));
     
-    return { data: locations };
+    const total = result.pagination?.totalItems || 0;
+    return { data: locations, total };
+  }
+
+  // Get place details by ID (for admin edit)
+  async getPlaceById(id: string, token?: string): Promise<PlaceDetail> {
+    if (!id) {
+      throw new Error('ID is required');
+    }
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    return this.fetchWithError(`${this.baseUrl}/api/admin/places/${id}`, {
+      headers,
+    });
   }
 
   // Get place details by slug
@@ -374,6 +416,16 @@ class ApiService {
     return this.fetchWithError(`${this.baseUrl}/api/places/${slug}`, {
       headers,
     });
+  }
+
+  // Fetch reviews for a place (lazy load)
+  async getPlaceReviews(slug: string): Promise<Review[]> {
+    if (!slug) {
+      throw new Error('Slug is required');
+    }
+
+    const response = await this.fetchWithError(`${this.baseUrl}/api/places/${slug}/reviews`);
+    return response.reviews || [];
   }
 
   // Create new place with new API (with structured address & categories)
@@ -437,6 +489,22 @@ class ApiService {
 
     const url = `${this.baseUrl}/api/admin/places${queryParams.toString() ? `?${queryParams}` : ""}`;
     return this.fetchWithError(url, { headers }) as Promise<AdminPlacesResponse>;
+  }
+
+  async getAdminStats(params?: {
+    search?: string;
+  }, token?: string): Promise<AdminStats> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.search) queryParams.append("search", params.search);
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${this.baseUrl}/api/admin/places/stats${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return this.fetchWithError(url, { headers }) as Promise<AdminStats>;
   }
 
   // ============ AUTH ENDPOINTS ============

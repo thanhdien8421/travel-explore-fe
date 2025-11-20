@@ -159,9 +159,17 @@ export default function VisitHistoryPage({ isModal = false }: VisitHistoryPagePr
       {/* Visit List */}
       <div className="divide-y divide-gray-200">
         {visits.map((visit, index) => {
-          const imageUrl = getImageUrl(
-            visit.place.cover_image_url || visit.place.coverImageUrl
-          );
+          // Get cover image - prioritize images array
+          let imageUrl = visit.place.cover_image_url || visit.place.coverImageUrl;
+          if (visit.place.images && visit.place.images.length > 0) {
+            const coverImage = visit.place.images.find(img => img.is_cover);
+            if (coverImage) {
+              imageUrl = getImageUrl(coverImage.image_url);
+            } else if (visit.place.images[0]) {
+              imageUrl = getImageUrl(visit.place.images[0].image_url);
+            }
+          }
+          imageUrl = getImageUrl(imageUrl);
 
           return (
             <Link

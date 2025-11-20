@@ -1,31 +1,84 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import NavBar from "@/components/nav-bar";
 import LocationBadge from "@/components/location-badge";
 import SearchOverlay from "@/components/search/search-overlay";
 import LocationCard from "@/components/card-list/location-card";
-import { apiService, PlaceSummary } from "@/lib/api";
+import LocationSearchBar from "@/components/search/location-search-bar";
+import { apiService, PlaceSummary, Category } from "@/lib/api";
 import Link from "next/link";
 
 export default function LocationsPage() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const queryQ = searchParams.get("q") || "";
+    const queryPage = searchParams.get("page") || "1";
+    
+    const ITEMS_PER_PAGE = 12;
+    
     const [locations, setLocations] = useState<PlaceSummary[]>([]);
+    const [filteredLocations, setFilteredLocations] = useState<PlaceSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [searchQuery, setSearchQuery] = useState("");
+    const [searchQuery, setSearchQuery] = useState(queryQ);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState("");
+    const [sortBy, setSortBy] = useState("name_asc");
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [currentPage, setCurrentPage] = useState(parseInt(queryPage) || 1);
+    const [totalResults, setTotalResults] = useState(0);
 
+    // Fetch categories on mount
     useEffect(() => {
-        fetchLocations();
+        const loadCategories = async () => {
+            try {
+                const cats = await apiService.getCategories();
+                setCategories(cats);
+            } catch (err) {
+                console.error("Error fetching categories:", err);
+            }
+        };
+        loadCategories();
     }, []);
 
-    const fetchLocations = async (search?: string) => {
+    // Fetch locations on mount and when page/query changes
+    useEffect(() => {
+        fetchLocations(currentPage);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPage, searchQuery, selectedCategory, sortBy]);
+
+    const fetchLocations = async (page: number) => {
         try {
             setLoading(true);
             setError(null);
-            // For now, get all places since search is not implemented in new API
-            const places = await apiService.getAllPlaces(50);
-            setLocations(places);
+            
+            // Build query parameters
+            const queryParams: {
+                limit: number;
+                page: number;
+                sortBy: string;
+                q?: string;
+                category?: string;
+            } = {
+                limit: ITEMS_PER_PAGE,
+                page: page,
+                sortBy: sortBy,
+            };
+            
+            if (searchQuery.trim()) {
+                queryParams.q = searchQuery.trim();
+            }
+            
+            if (selectedCategory) {
+                queryParams.category = selectedCategory;
+            }
+            
+            // Call search API with pagination
+            const response = await apiService.getLocations(queryParams);
+            setLocations(response.data || []);
+            setTotalResults(response.total || 0);
         } catch (err) {
             setError("Không thể tải danh sách địa điểm. Vui lòng thử lại sau.");
             console.error("Error fetching locations:", err);
@@ -34,20 +87,35 @@ export default function LocationsPage() {
         }
     };
 
+    const applyFiltersAndSort = () => {
+        // Filtering and sorting now done server-side via API
+        setFilteredLocations(locations);
+    };
+
+    // Apply filters and sort whenever locations change
+    useEffect(() => {
+        applyFiltersAndSort();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [locations]);
+
     const handleSearch = (query: string) => {
         setSearchQuery(query);
-        // For now, just filter locally since search is not implemented in new API
-        if (query.trim()) {
-            const filtered = locations.filter(location => 
-                location.name.toLowerCase().includes(query.toLowerCase()) ||
-                (location.description && location.description.toLowerCase().includes(query.toLowerCase())) ||
-                (location.district && location.district.toLowerCase().includes(query.toLowerCase()))
-            );
-            setLocations(filtered);
-        } else {
-            fetchLocations();
-        }
+        setCurrentPage(1); // Reset to page 1 on new search
     };
+
+    // Update URL when search/filter/sort/page changes
+    useEffect(() => {
+        const params = new URLSearchParams();
+        if (searchQuery) params.set("q", searchQuery);
+        if (selectedCategory) params.set("category", selectedCategory);
+        if (sortBy !== "name_asc") params.set("sort", sortBy);
+        if (currentPage !== 1) params.set("page", currentPage.toString());
+        
+        const queryString = params.toString();
+        router.push(queryString ? `/locations?${queryString}` : "/locations", { scroll: false });
+    }, [searchQuery, selectedCategory, sortBy, currentPage, router]);
+
+    const totalPages = Math.ceil(totalResults / ITEMS_PER_PAGE);
 
     return (
         <div className="min-h-screen bg-[rgb(252,252,252)]">
@@ -76,16 +144,14 @@ export default function LocationsPage() {
                         </p>
                     </div>
 
-                    {/* Search Button */}
-                    <button
-                        onClick={() => setIsSearchOpen(true)}
-                        className="w-full max-w-3xl mx-auto flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 sm:py-4 bg-white border-2 border-gray-200 rounded-full hover:border-gray-400 hover:shadow-lg transition-all duration-300 text-left"
-                    >
-                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <span className="text-gray-500 text-xs sm:text-sm md:text-base lg:text-lg truncate">Tìm kiếm địa điểm, điểm tham quan hoặc trải nghiệm...</span>
-                    </button>
+                    {/* Search Bar */}
+                    <div className="w-full max-w-3xl mx-auto mb-8">
+                        <LocationSearchBar 
+                            value={searchQuery}
+                            onSearch={handleSearch}
+                            className="w-full"
+                        />
+                    </div>
                 </div>
             </header>
 
@@ -99,24 +165,41 @@ export default function LocationsPage() {
                         </h2>
                         {!loading && !error && (
                             <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">
-                                {locations.length} địa điểm được tìm thấy
+                                {filteredLocations.length} địa điểm được tìm thấy
                             </p>
                         )}
                     </div>
 
                     {/* Filter Options */}
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
-                        <select className="border border-gray-300 rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white">
+                        <Link
+                            href={`/locations/map${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ""}`}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm"
+                        >
+                            🗺️ Xem trên bản đồ
+                        </Link>
+
+                        <select 
+                            value={selectedCategory} 
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            className="border border-gray-300 rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
+                        >
                             <option value="">Tất cả danh mục</option>
-                            <option value="tourist">Du lịch</option>
-                            <option value="food">Ẩm thực</option>
-                            <option value="culture">Văn hóa</option>
-                            <option value="shopping">Mua sắm</option>
+                            {categories.map((cat) => (
+                                <option key={cat.id} value={cat.slug}>
+                                    {cat.name}
+                                </option>
+                            ))}
                         </select>
 
-                        <select className="border border-gray-300 rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white">
-                            {/* <option value="rating">Đánh giá cao nhất</option> */}
-                            <option value="name">Tên A-Z</option>
+                        <select 
+                            value={sortBy} 
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="border border-gray-300 rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
+                        >
+                            <option value="name_asc">Tên A-Z</option>
+                            <option value="name_desc">Tên Z-A</option>
+                            <option value="rating">Đánh giá cao nhất</option>
                             <option value="newest">Mới nhất</option>
                         </select>
                     </div>
@@ -144,7 +227,7 @@ export default function LocationsPage() {
                         <h3 className="text-xl font-semibold text-red-800 mb-2">Oops! Có lỗi xảy ra</h3>
                         <p className="text-red-700 mb-6">{error}</p>
                         <button
-                            onClick={() => fetchLocations(searchQuery)}
+                            onClick={() => fetchLocations(currentPage)}
                             className="bg-red-600 text-white px-6 py-3 rounded-full hover:bg-red-700 transition-colors font-medium"
                         >
                             Thử Lại
@@ -173,34 +256,67 @@ export default function LocationsPage() {
                 )}
 
                 {/* Locations Grid */}
-                {!loading && !error && locations.length > 0 && (
+                {!loading && !error && filteredLocations.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
-                        {locations.map((location) => (
+                        {filteredLocations.map((location) => (
                             <LocationCard key={location.id} location={location}/>
                         ))}
                     </div>
                 )}
 
                 {/* Pagination */}
-                {!loading && !error && locations.length > 0 && (
+                {!loading && !error && filteredLocations.length > 0 && totalPages > 1 && (
                     <div className="flex justify-center mt-12">
                         <nav className="flex items-center space-x-2">
-                            <button className="px-4 py-2 text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
-                                Trước
+                            <button 
+                                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                                disabled={currentPage === 1}
+                                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                ← Trước
                             </button>
-                            <button className="px-4 py-2 text-white bg-gray-800 border border-gray-800 rounded-lg hover:bg-gray-900">
-                                1
-                            </button>
-                            <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                                2
-                            </button>
-                            <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                                3
-                            </button>
-                            <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                                Sau
+                            
+                            {/* Page numbers */}
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                .filter(page => {
+                                    // Show first page, last page, current page, and 2 pages around current
+                                    const start = Math.max(1, currentPage - 1);
+                                    const end = Math.min(totalPages, currentPage + 1);
+                                    return page === 1 || page === totalPages || (page >= start && page <= end);
+                                })
+                                .map((page, idx, arr) => {
+                                    // Add ellipsis if there's a gap
+                                    const prevPage = arr[idx - 1];
+                                    const showEllipsis = prevPage && page - prevPage > 1;
+                                    
+                                    return (
+                                        <div key={`page-${page}`} className="flex items-center">
+                                            {showEllipsis && <span className="px-2 text-gray-400">...</span>}
+                                            <button
+                                                onClick={() => setCurrentPage(page)}
+                                                className={`px-4 py-2 border rounded-lg transition-colors ${
+                                                    currentPage === page
+                                                        ? 'text-white bg-gray-800 border-gray-800 hover:bg-gray-900'
+                                                        : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            
+                            <button 
+                                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Sau →
                             </button>
                         </nav>
+                        <div className="ml-8 text-gray-600">
+                            Trang {currentPage} / {totalPages} ({totalResults} kết quả)
+                        </div>
                     </div>
                 )}
             </main>
