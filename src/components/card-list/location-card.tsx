@@ -1,20 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getImageUrl } from "@/lib/image-utils";
-
-interface Location {
-  id: string;
-  name: string;
-  description: string | null;
-  cover_image_url: string | null;
-  district: string | null;
-  slug: string;
-  average_rating?: number | null;
-  is_featured?: boolean;
-}
+import { PlaceSummary } from "@/lib/api";
 
 interface LocationCardProps {
-  location: Location;
+  location: PlaceSummary;
 }
 
 export default function LocationCard({ location }: LocationCardProps) {

@@ -5,16 +5,26 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Category interface
+export interface Category {
+  id: string;                      // UUID
+  name: string;                    // Category name (e.g., "Ẩm thực")
+  slug: string;                    // URL-friendly slug (e.g., "am-thuc")
+}
+
 // Place summary interface (for list views)
 export interface PlaceSummary {
   id: string;                      // UUID
   name: string;                    // Place name
   slug: string;                    // URL-friendly identifier
-  description: string | null;      // Short description
-  district: string | null;         // District name
-  cover_image_url: string | null;  // Main image URL
+  description?: string | null;     // Short description
+  ward: string;                    // Ward/sub-district (new - required)
+  district?: string | null;        // District name
+  cover_image_url?: string | null; // Main image URL
   is_featured?: boolean;           // Featured flag (optional in summary)
   average_rating?: number | null;  // Average rating (optional in summary)
+  latitude?: number | null;        // Latitude coordinate (for map)
+  longitude?: number | null;       // Longitude coordinate (for map)
 }
 
 // Place image interface
@@ -30,9 +40,11 @@ export interface PlaceDetail {
   name: string;                    // Place name
   slug: string;                    // URL-friendly identifier
   description?: string | null;     // Full description
-  address_text?: string | null;    // Full address
+  street_address?: string | null;  // Street address (new - replaces address_text)
+  ward: string;                    // Ward/sub-district (new - required)
   district?: string | null;        // District name
-  city?: string | null;            // City name
+  province_city?: string | null;   // Province/city (new)
+  location_description?: string | null; // Location description (new)
   latitude?: number | null;        // Latitude coordinate
   longitude?: number | null;       // Longitude coordinate
   cover_image_url?: string | null; // Main image URL
@@ -42,10 +54,11 @@ export interface PlaceDetail {
   tips_notes?: string | null;      // Visitor tips
   is_featured: boolean;            // Featured flag
   average_rating?: number | null;  // Average rating
-  visited?: boolean;               // Whether current user has visited (for authenticated users)
-  created_at: Date;                // Creation timestamp
-  updated_at: Date;                // Last update timestamp
-  images: PlaceImage[];            // Array of images
+  categories?: Category[];         // Array of categories (new - M2M)
+  visited?: boolean;               // Whether current user has visited
+  created_at?: Date;               // Creation timestamp
+  updated_at?: Date;               // Last update timestamp
+  images?: PlaceImage[];           // Array of images
   reviews?: Review[];              // Array of reviews
 }
 
@@ -66,21 +79,24 @@ export interface CreateLocationDto {
   rating?: number;
 }
 
-// New interface for creating places with the new API
+// New interface for creating places with the new API (structured address)
 export interface CreatePlaceDto {
   name: string;
   description: string;
-  addressText: string;              // camelCase to match backend
-  coverImageUrl: string;            // camelCase to match backend
-  district?: string;
-  city?: string;
-  latitude?: number;                // Optional - if provided, skip geocoding
-  longitude?: number;               // Optional - if provided, skip geocoding
-  openingHours?: string;            // camelCase to match backend
-  priceInfo?: string;               // camelCase to match backend
-  contactInfo?: string;             // camelCase to match backend
-  tipsNotes?: string;               // camelCase to match backend
-  isFeatured?: boolean;             // camelCase to match backend (default: false)
+  streetAddress: string;           // Street address (new - required)
+  ward: string;                    // Ward/sub-district (new - required)
+  district?: string;               // District name
+  provinceCity?: string;           // Province/city
+  locationDescription?: string;    // Location description
+  coverImageUrl: string;           // Cover image URL
+  latitude?: number;               // Latitude (optional - backend can geocode)
+  longitude?: number;              // Longitude (optional - backend can geocode)
+  categoryIds: string[];           // Category IDs (new - M2M)
+  openingHours?: string;           // Opening hours
+  priceInfo?: string;              // Price info
+  contactInfo?: string;            // Contact info
+  tipsNotes?: string;              // Tips/notes
+  isFeatured?: boolean;            // Featured flag (default: false)
 }
 
 // Auth interfaces
@@ -147,6 +163,45 @@ export interface LocationsResponse {
   status: string;
   data: Location[];
   pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface PlacesResponse {
+  data: PlaceSummary[];
+  pagination?: {
+    totalItems: number;
+    totalPages: number;
+    currentPage: number;
+  };
+}
+
+export interface CategoriesResponse {
+  data: Category[];
+}
+
+export interface WardsResponse {
+  data: string[];
+}
+
+export interface AdminPlacesResponse {
+  data: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    district: string | null;
+    ward: string;
+    coverImageUrl: string | null;
+    isFeatured: boolean;
+    averageRating: number;
+    categories: Array<{ categoryId: string; category: { id: string; name: string } }>;
+    createdAt: string;
+  }>;
+  pagination: {
     page: number;
     limit: number;
     total: number;
@@ -221,18 +276,43 @@ class ApiService {
     }
   }
 
-  // Get places list with optional featured filter
+  // Search places with advanced filters (new API)
+  async searchPlaces(params?: {
+    q?: string;                     // Search query
+    category?: string;              // Category slug filter
+    ward?: string;                  // Ward filter
+    district?: string;              // District filter
+    sortBy?: string;                // Sort: name_asc, name_desc, rating_asc, rating_desc
+    limit?: number;                 // Items per page (default 10)
+    page?: number;                  // Page number (default 1)
+    featured?: boolean;             // Featured places only
+  }): Promise<PlacesResponse> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.q) queryParams.append("q", params.q);
+    if (params?.category) queryParams.append("category", params.category);
+    if (params?.ward) queryParams.append("ward", params.ward);
+    if (params?.district) queryParams.append("district", params.district);
+    if (params?.sortBy) queryParams.append("sortBy", params.sortBy);
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.featured !== undefined) queryParams.append("featured", params.featured.toString());
+
+    const url = `${this.baseUrl}/api/places${queryParams.toString() ? `?${queryParams}` : ""}`;
+    const result = await this.fetchWithError(url);
+    return result as PlacesResponse;
+  }
+
+  // Get places list with optional featured filter (legacy)
   async getPlaces(params?: {
     featured?: boolean;
     limit?: number;
   }): Promise<PlaceSummary[]> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.featured !== undefined) queryParams.append("featured", params.featured.toString());
-    if (params?.limit) queryParams.append("limit", params.limit.toString());
-
-    const url = `${this.baseUrl}/api/places${queryParams.toString() ? `?${queryParams}` : ""}`;
-    return this.fetchWithError(url);
+    const response = await this.searchPlaces({
+      featured: params?.featured,
+      limit: params?.limit || 10,
+    });
+    return response.data;
   }
 
   // Get featured places (convenience method)
@@ -245,21 +325,30 @@ class ApiService {
     return this.getPlaces({ limit });
   }
 
-  // Search locations by query
+  // Get all categories (new)
+  async getCategories(): Promise<Category[]> {
+    const response = await this.fetchWithError(`${this.baseUrl}/api/categories`) as CategoriesResponse;
+    return response.data;
+  }
+
+  // Get all wards (new)
+  async getWards(): Promise<string[]> {
+    const response = await this.fetchWithError(`${this.baseUrl}/api/wards`) as WardsResponse;
+    return response.data;
+  }
+
+  // Search locations by query (legacy - for backward compatibility)
   async getLocations(params?: {
     search?: string;
     limit?: number;
   }): Promise<{ data: Location[] }> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.search) queryParams.append("search", params.search);
-    if (params?.limit) queryParams.append("limit", params.limit.toString());
-
-    const url = `${this.baseUrl}/api/places${queryParams.toString() ? `?${queryParams}` : ""}`;
-    const result = await this.fetchWithError(url);
+    const result = await this.searchPlaces({
+      q: params?.search,
+      limit: params?.limit || 10,
+    });
     
     // Transform PlaceSummary to Location for backward compatibility
-    const locations: Location[] = (result || []).map((place: PlaceSummary) => ({
+    const locations: Location[] = (result.data || []).map((place: PlaceSummary) => ({
       ...place,
       location: place.district || "",
       image: place.cover_image_url || "",
@@ -287,13 +376,67 @@ class ApiService {
     });
   }
 
-  // Create new place with new API (with OpenStreetMap integration)
-  async createPlace(data: CreatePlaceDto): Promise<PlaceDetail> {
+  // Create new place with new API (with structured address & categories)
+  async createPlace(data: CreatePlaceDto, token: string): Promise<PlaceDetail> {
     const response = await this.fetchWithError(`${this.baseUrl}/api/admin/places`, {
       method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify(data),
     });
     return response;
+  }
+
+  // Update place (new)
+  async updatePlace(id: string, data: Partial<CreatePlaceDto>, token: string): Promise<PlaceDetail> {
+    const response = await this.fetchWithError(`${this.baseUrl}/api/admin/places/${id}`, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    return response;
+  }
+
+  // Delete place (soft delete - new)
+  async deletePlace(id: string, token: string): Promise<void> {
+    await this.fetchWithError(`${this.baseUrl}/api/admin/places/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Get admin places with pagination, sorting, and filtering
+  async getAdminPlaces(params?: {
+    search?: string;
+    category?: string;
+    ward?: string;
+    sortBy?: "name" | "createdAt" | "featured";
+    sortOrder?: "asc" | "desc";
+    limit?: number;
+    page?: number;
+  }, token?: string): Promise<AdminPlacesResponse> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.category) queryParams.append("category", params.category);
+    if (params?.ward) queryParams.append("ward", params.ward);
+    if (params?.sortBy) queryParams.append("sortBy", params.sortBy);
+    if (params?.sortOrder) queryParams.append("sortOrder", params.sortOrder);
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.page) queryParams.append("page", params.page.toString());
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${this.baseUrl}/api/admin/places${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return this.fetchWithError(url, { headers }) as Promise<AdminPlacesResponse>;
   }
 
   // ============ AUTH ENDPOINTS ============

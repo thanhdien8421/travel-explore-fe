@@ -1,24 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import NavBar from "@/components/nav-bar";
 import LocationPicker from "@/components/location-picker";
 import SupabaseImageUpload from "@/components/supabase-image-upload";
-import { apiService, CreatePlaceDto } from "@/lib/api";
+import { apiService, CreatePlaceDto, Category } from "@/lib/api";
+import { MdLightbulb, MdPhotoLibrary } from "react-icons/md";
 
 interface PlaceFormData {
   name: string;
   description: string;
-  address_text: string;
+  street_address: string;           // New: street address
+  ward: string;                     // New: ward/sub-district (required)
+  district: string;                // District name
+  province_city: string;            // New: province/city (replaces city)
+  location_description: string;     // New: location description
   cover_image_url: string;
-  district: string;
-  city: string;
   opening_hours: string;
   price_info: string;
   contact_info: string;
   tips_notes: string;
   is_featured: boolean;
+  categoryIds: string[];           // New: array of category IDs
   // Map coordinates for location picking
   latitude: number | null;
   longitude: number | null;
@@ -30,15 +36,18 @@ export default function AddLocation() {
   const [formData, setFormData] = useState<PlaceFormData>({
     name: "",
     description: "",
-    address_text: "",
-    cover_image_url: "",
+    street_address: "",
+    ward: "",
     district: "",
-    city: "",
+    province_city: "",
+    location_description: "",
+    cover_image_url: "",
     opening_hours: "",
     price_info: "",
     contact_info: "",
     tips_notes: "",
     is_featured: false,
+    categoryIds: [],
     latitude: null,
     longitude: null,
   });
@@ -47,6 +56,32 @@ export default function AddLocation() {
   const [success, setSuccess] = useState(false);
   const [showCoordWarning, setShowCoordWarning] = useState(false);
   const [redirectSlug, setRedirectSlug] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  // Fetch categories on component mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await apiService.getCategories();
+        setCategories(data);
+      } catch (err) {
+        console.error("Lỗi khi tải danh mục:", err);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  const handleCategoryChange = (categoryId: string) => {
+    setFormData(prev => {
+      const newCategoryIds = prev.categoryIds.includes(categoryId)
+        ? prev.categoryIds.filter(id => id !== categoryId)
+        : [...prev.categoryIds, categoryId];
+      return { ...prev, categoryIds: newCategoryIds };
+    });
+  };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -113,19 +148,31 @@ export default function AddLocation() {
     }
 
     try {
+      // Validate required fields
+      if (!formData.name || !formData.description || !formData.street_address || !formData.ward) {
+        setError("Vui lòng điền đầy đủ thông tin bắt buộc (tên, mô tả, địa chỉ, phường)");
+        setIsSubmitting(false);
+        return;
+      }
+
       // Create the place data object matching the new API contract
       const placeData: CreatePlaceDto = {
         name: formData.name,
         description: formData.description,
-        addressText: formData.address_text,          // camelCase for backend
-        coverImageUrl: formData.cover_image_url,     // camelCase for backend
+        streetAddress: formData.street_address,
+        ward: formData.ward,
         district: formData.district || undefined,
-        city: formData.city || undefined,
-        openingHours: formData.opening_hours || undefined,    // camelCase for backend
-        priceInfo: formData.price_info || undefined,          // camelCase for backend
-        contactInfo: formData.contact_info || undefined,      // camelCase for backend
-        tipsNotes: formData.tips_notes || undefined,          // camelCase for backend
-        isFeatured: formData.is_featured,                     // camelCase for backend
+        provinceCity: formData.province_city || undefined,
+        locationDescription: formData.location_description || undefined,
+        coverImageUrl: formData.cover_image_url,
+        openingHours: formData.opening_hours || undefined,
+        priceInfo: formData.price_info || undefined,
+        contactInfo: formData.contact_info || undefined,
+        tipsNotes: formData.tips_notes || undefined,
+        isFeatured: formData.is_featured,
+        categoryIds: formData.categoryIds,
+        latitude: formData.latitude ?? undefined,
+        longitude: formData.longitude ?? undefined,
       };
 
       // Add coordinates only if they were manually picked on the map
@@ -133,10 +180,16 @@ export default function AddLocation() {
         placeData.latitude = formData.latitude;
         placeData.longitude = formData.longitude;
       }
-      // If coordinates are null, backend will geocode from addressText
 
-      // Call the real API
-      const createdPlace = await apiService.createPlace(placeData);
+      // Call the API - requires token for creation
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        setError("Vui lòng đăng nhập để thêm địa điểm mới");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const createdPlace = await apiService.createPlace(placeData, token);
       setSuccess(true);
       
       // Hide modal and redirect after animation
@@ -248,7 +301,7 @@ export default function AddLocation() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Thông tin địa điểm
+                    Thông tin cơ bản
                   </div>
                 </button>
                 <button
@@ -264,7 +317,7 @@ export default function AddLocation() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                     </svg>
-                    Bản đồ định vị
+                    Thông tin chi tiết & Vị trí
                   </div>
                 </button>
               </div>
@@ -307,28 +360,90 @@ export default function AddLocation() {
                       />
                     </div>
 
-                    {/* Địa chỉ đầy đủ */}
+                    {/* Đường/Địa chỉ */}
                     <div>
-                      <label htmlFor="address_text" className="block text-sm font-medium text-gray-700 mb-2">
-                        Địa chỉ đầy đủ <span className="text-red-500">*</span>
+                      <label htmlFor="street_address" className="block text-sm font-medium text-gray-700 mb-2">
+                        Đường/Địa chỉ <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
-                        id="address_text"
-                        name="address_text"
-                        value={formData.address_text}
+                        id="street_address"
+                        name="street_address"
+                        value={formData.street_address}
                         onChange={handleInputChange}
                         required
-                        placeholder="Ví dụ: 1 Công xã Paris, Bến Nghé, Quận 1, Thành phố Hồ Chí Minh"
+                        placeholder="Ví dụ: 1 Công xã Paris"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
                       />
-                      <div className="mt-1 text-sm text-gray-500">
-                        <p>Địa chỉ này sẽ được sử dụng để tự động tìm tọa độ trên bản đồ.</p>
-                        <p className="mt-1">
-                          💡 <strong>Mẹo:</strong> Nếu địa chỉ không rõ ràng hoặc không có trên bản đồ, 
-                          hãy sử dụng tab &quot;Bản đồ&quot; để chọn vị trí chính xác.
-                        </p>
-                      </div>
+                    </div>
+
+                    {/* Phường */}
+                    <div>
+                      <label htmlFor="ward" className="block text-sm font-medium text-gray-700 mb-2">
+                        Phường <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="ward"
+                        name="ward"
+                        value={formData.ward}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="Ví dụ: Bến Nghé"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                      />
+                    </div>
+
+                    {/* Quận */}
+                    <div>
+                      <label htmlFor="district" className="block text-sm font-medium text-gray-700 mb-2">
+                        Quận/Huyện <i>(Nhập đầy đủ cả 3 cấp nếu là địa chỉ cũ)</i>
+                      </label>
+                      <input
+                        type="text"
+                        id="district"
+                        name="district"
+                        value={formData.district}
+                        onChange={handleInputChange}
+                        placeholder="Ví dụ: Quận 1"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                      />
+                    </div>
+
+                    {/* Tỉnh/TP */}
+                    <div>
+                      <label htmlFor="province_city" className="block text-sm font-medium text-gray-700 mb-2">
+                        Tỉnh/Thành phố
+                      </label>
+                      <input
+                        type="text"
+                        id="province_city"
+                        name="province_city"
+                        value={formData.province_city}
+                        onChange={handleInputChange}
+                        placeholder="Ví dụ: Thành phố Hồ Chí Minh"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                      />
+                    </div>
+
+                    {/* Mô tả vị trí */}
+                    <div>
+                      <label htmlFor="location_description" className="block text-sm font-medium text-gray-700 mb-2">
+                        Mô tả vị trí
+                      </label>
+                      <input
+                        type="text"
+                        id="location_description"
+                        name="location_description"
+                        value={formData.location_description}
+                        onChange={handleInputChange}
+                        placeholder="Ví dụ: Gần tuyến Metro số 1"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                      />
+                      <p className="mt-1 text-sm text-gray-500 flex items-center gap-2">
+                        <MdLightbulb className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                        <span><strong>Mẹo:</strong> Nếu địa chỉ không rõ ràng hoặc không có trên bản đồ, hãy sử dụng tab &quot;Bản đồ&quot; để chọn vị trí chính xác.</span>
+                      </p>
                     </div>
 
                     {/* Ảnh bìa */}
@@ -342,126 +457,16 @@ export default function AddLocation() {
                         required
                       />
                       {formData.name && (
-                        <p className="mt-1 text-xs text-gray-500">
-                          💡 Ảnh sẽ được lưu với tên: {formData.name.toLowerCase()
+                        <p className="mt-1 text-xs text-gray-500 flex items-center gap-2">
+                          <MdPhotoLibrary className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                          <span>Ảnh sẽ được lưu với tên: {formData.name.toLowerCase()
                             .normalize('NFD')
                             .replace(/[\u0300-\u036f]/g, '')
                             .replace(/đ/g, 'd')
                             .replace(/ /g, '-')
-                            .replace(/[^\w-]+/g, '')}.jpg
+                            .replace(/[^\w-]+/g, '')}.jpg</span>
                         </p>
                       )}
-                    </div>
-
-                    {/* Quận/Huyện */}
-                    <div>
-                      <label htmlFor="district" className="block text-sm font-medium text-gray-700 mb-2">
-                        Quận/Huyện
-                      </label>
-                      <input
-                        type="text"
-                        id="district"
-                        name="district"
-                        value={formData.district}
-                        onChange={handleInputChange}
-                        placeholder="Ví dụ: Quận 1"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                      />
-                    </div>
-
-                    {/* Thành phố */}
-                    <div>
-                      <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-                        Thành phố
-                      </label>
-                      <input
-                        type="text"
-                        id="city"
-                        name="city"
-                        value={formData.city}
-                        onChange={handleInputChange}
-                        placeholder="Ví dụ: Thành phố Hồ Chí Minh"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                      />
-                    </div>
-
-                    {/* Giờ mở cửa */}
-                    <div>
-                      <label htmlFor="opening_hours" className="block text-sm font-medium text-gray-700 mb-2">
-                        Giờ mở cửa
-                      </label>
-                      <input
-                        type="text"
-                        id="opening_hours"
-                        name="opening_hours"
-                        value={formData.opening_hours}
-                        onChange={handleInputChange}
-                        placeholder="Ví dụ: 8:00 - 17:00 hàng ngày"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                      />
-                    </div>
-
-                    {/* Thông tin giá */}
-                    <div>
-                      <label htmlFor="price_info" className="block text-sm font-medium text-gray-700 mb-2">
-                        Thông tin giá
-                      </label>
-                      <input
-                        type="text"
-                        id="price_info"
-                        name="price_info"
-                        value={formData.price_info}
-                        onChange={handleInputChange}
-                        placeholder="Ví dụ: Miễn phí hoặc 50,000 VND/người"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                      />
-                    </div>
-
-                    {/* Thông tin liên hệ */}
-                    <div>
-                      <label htmlFor="contact_info" className="block text-sm font-medium text-gray-700 mb-2">
-                        Thông tin liên hệ
-                      </label>
-                      <input
-                        type="text"
-                        id="contact_info"
-                        name="contact_info"
-                        value={formData.contact_info}
-                        onChange={handleInputChange}
-                        placeholder="Ví dụ: 028 3829 7787 hoặc info@example.com"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                      />
-                    </div>
-
-                    {/* Ghi chú và mẹo */}
-                    <div>
-                      <label htmlFor="tips_notes" className="block text-sm font-medium text-gray-700 mb-2">
-                        Ghi chú và mẹo cho du khách
-                      </label>
-                      <textarea
-                        id="tips_notes"
-                        name="tips_notes"
-                        value={formData.tips_notes}
-                        onChange={handleInputChange}
-                        rows={3}
-                        placeholder="Các mẹo hữu ích cho du khách, ghi chú đặc biệt..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                      />
-                    </div>
-
-                    {/* Địa điểm nổi bật */}
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="is_featured"
-                        name="is_featured"
-                        checked={formData.is_featured}
-                        onChange={handleInputChange}
-                        className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="is_featured" className="ml-2 block text-sm font-medium text-gray-700">
-                        Đánh dấu là địa điểm nổi bật
-                      </label>
                     </div>
 
                     {/* Buttons */}
@@ -474,11 +479,11 @@ export default function AddLocation() {
                         Hủy
                       </button>
                       <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        type="button"
+                        onClick={() => setActiveTab("map")}
+                        className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors"
                       >
-                        {isSubmitting ? "Đang thêm..." : "Thêm địa điểm"}
+                        Tiếp tục →
                       </button>
                     </div>
                   </form>
@@ -486,88 +491,209 @@ export default function AddLocation() {
 
                 {activeTab === "map" && (
                   <div className="space-y-6">
-                    <div className="text-center py-4">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        Chọn vị trí trên bản đồ
+                    {/* Step indicator */}
+                    {/* <div className="text-center py-2">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                        Bước 2: Thêm thông tin chi tiết và chọn vị trí
                       </h3>
-                      <p className="text-gray-600">
-                        Chọn vị trí chính xác bằng cách nhấp vào bản đồ hoặc tìm kiếm địa chỉ
-                      </p>
-                      
-                      {/* Coordinate Status */}
-                      <div className="mt-3">
-                        {formData.latitude && formData.longitude ? (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            ✓ Đã chọn tọa độ chính xác
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            ⚠ Chưa chọn tọa độ - Hệ thống sẽ tự động xác định từ địa chỉ
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <LocationPicker
-                      latitude={formData.latitude}
-                      longitude={formData.longitude}
-                      onLocationChange={handleLocationChange}
-                    />
-                    
-                    {/* Show current coordinates and address */}
-                    {(formData.latitude || formData.address_text) && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-blue-900">Thông tin vị trí hiện tại:</h4>
-                          {formData.latitude && formData.longitude && (
-                            <button
-                              type="button"
-                              onClick={clearCoordinates}
-                              className="text-xs text-blue-600 hover:text-blue-800 underline"
-                            >
-                              Xóa tọa độ
-                            </button>
+                    </div> */}
+
+                    {/* Location picker section */}
+                    <div className="pt-6">
+                      <div className="text-center mb-4">
+                        <h4 className="text-base font-semibold text-gray-900 mb-2">
+                          Chọn vị trí trên bản đồ
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          Chọn vị trí chính xác bằng cách nhấp vào bản đồ (tùy chọn)
+                        </p>
+                        
+                        {/* Coordinate Status */}
+                        <div className="mt-3">
+                          {formData.latitude && formData.longitude ? (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              ✓ Đã chọn tọa độ chính xác
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              ⚠ Tùy chọn - Hệ thống sẽ tự động xác định từ địa chỉ
+                            </span>
                           )}
                         </div>
-                        {formData.latitude && formData.longitude && (
-                          <p className="text-sm text-blue-800">
-                            <strong>Tọa độ:</strong> {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
-                          </p>
-                        )}
-                        {formData.address_text && (
-                          <p className="text-sm text-blue-800 mt-1">
-                            <strong>Địa chỉ:</strong> {formData.address_text}
-                          </p>
+                      </div>
+                      
+                      <LocationPicker
+                        latitude={formData.latitude}
+                        longitude={formData.longitude}
+                        onLocationChange={handleLocationChange}
+                      />
+                      
+                      {/* Show current coordinates and address */}
+                      {(formData.latitude || formData.street_address) && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium text-blue-900">Thông tin vị trí:</h4>
+                            {formData.latitude && formData.longitude && (
+                              <button
+                                type="button"
+                                onClick={clearCoordinates}
+                                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                              >
+                                Xóa tọa độ
+                              </button>
+                            )}
+                          </div>
+                          {formData.latitude && formData.longitude && (
+                            <p className="text-sm text-blue-800">
+                              <strong>Tọa độ:</strong> {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                            </p>
+                          )}
+                          {formData.street_address && (
+                            <p className="text-sm text-blue-800 mt-1">
+                              <strong>Địa chỉ:</strong> {formData.street_address}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Additional info section */}
+                    <div className="border-t pt-6">
+                      <h4 className="text-base font-semibold text-gray-900 mb-4">
+                        Thông tin bổ sung
+                      </h4>
+
+                      {/* Danh mục */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Danh mục <span className="text-gray-500 font-normal">(Tùy chọn)</span>
+                        </label>
+                        {categoriesLoading ? (
+                          <div className="text-center py-4">
+                            <div className="inline-block">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700"></div>
+                            </div>
+                          </div>
+                        ) : categories.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            {categories.map((category) => (
+                              <label
+                                key={category.id}
+                                className="flex items-center p-3 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={formData.categoryIds.includes(category.id)}
+                                  onChange={() => handleCategoryChange(category.id)}
+                                  className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm font-medium text-gray-700">
+                                  {category.name}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">Không có danh mục nào</p>
                         )}
                       </div>
-                    )}
-                    
-                    {/* Note about backend processing */}
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <p className="text-sm text-gray-600">
-                        <strong>Cách thức hoạt động:</strong><br/>
-                        • <strong>Địa chỉ</strong> là bắt buộc và sẽ được hệ thống sử dụng để tự động tìm tọa độ<br/>
-                        • <strong>Tọa độ từ bản đồ</strong> sẽ được ưu tiên nếu bạn chọn (tùy chọn)<br/>
-                        • Nếu không chọn tọa độ, hệ thống vẫn hoạt động bình thường với địa chỉ
-                      </p>
+
+                      {/* Giờ mở cửa */}
+                      <div className="mb-6">
+                        <label htmlFor="opening_hours" className="block text-sm font-medium text-gray-700 mb-2">
+                          Giờ mở cửa
+                        </label>
+                        <input
+                          type="text"
+                          id="opening_hours"
+                          name="opening_hours"
+                          value={formData.opening_hours}
+                          onChange={handleInputChange}
+                          placeholder="Ví dụ: 8:00 - 17:00 hàng ngày"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        />
+                      </div>
+
+                      {/* Thông tin giá */}
+                      <div className="mb-6">
+                        <label htmlFor="price_info" className="block text-sm font-medium text-gray-700 mb-2">
+                          Thông tin giá
+                        </label>
+                        <input
+                          type="text"
+                          id="price_info"
+                          name="price_info"
+                          value={formData.price_info}
+                          onChange={handleInputChange}
+                          placeholder="Ví dụ: Miễn phí hoặc 50,000 VND/người"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        />
+                      </div>
+
+                      {/* Thông tin liên hệ */}
+                      <div className="mb-6">
+                        <label htmlFor="contact_info" className="block text-sm font-medium text-gray-700 mb-2">
+                          Thông tin liên hệ
+                        </label>
+                        <input
+                          type="text"
+                          id="contact_info"
+                          name="contact_info"
+                          value={formData.contact_info}
+                          onChange={handleInputChange}
+                          placeholder="Ví dụ: 028 3829 7787 hoặc info@example.com"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        />
+                      </div>
+
+                      {/* Ghi chú và mẹo */}
+                      <div className="mb-6">
+                        <label htmlFor="tips_notes" className="block text-sm font-medium text-gray-700 mb-2">
+                          Ghi chú và mẹo cho du khách
+                        </label>
+                        <textarea
+                          id="tips_notes"
+                          name="tips_notes"
+                          value={formData.tips_notes}
+                          onChange={handleInputChange}
+                          rows={3}
+                          placeholder="Các mẹo hữu ích cho du khách, ghi chú đặc biệt..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        />
+                      </div>
+
+                      {/* Địa điểm nổi bật */}
+                      <div className="mb-6 flex items-center">
+                        <input
+                          type="checkbox"
+                          id="is_featured"
+                          name="is_featured"
+                          checked={formData.is_featured}
+                          onChange={handleInputChange}
+                          className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="is_featured" className="ml-2 block text-sm font-medium text-gray-700">
+                          Đánh dấu là địa điểm nổi bật
+                        </label>
+                      </div>
                     </div>
 
                     {/* Form submission buttons for map tab */}
                     <div className="flex gap-4 pt-4 border-t">
                       <button
                         type="button"
-                        onClick={() => router.back()}
+                        onClick={() => setActiveTab("info")}
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
                       >
-                        Hủy
+                        ← Quay lại
                       </button>
                       <button
                         type="button"
                         onClick={handleSubmit}
-                        disabled={isSubmitting || !formData.name || !formData.description || !formData.address_text || !formData.cover_image_url}
+                        disabled={isSubmitting || !formData.name || !formData.description || !formData.street_address || !formData.ward || !formData.cover_image_url}
                         className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {isSubmitting ? "Đang thêm..." : "Thêm địa điểm"}
+                        {isSubmitting ? "Đang thêm..." : "✓ Hoàn tất"}
                       </button>
                     </div>
                   </div>
@@ -581,9 +707,7 @@ export default function AddLocation() {
             {/* Tips Card */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-center gap-2 mb-4">
-                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
+                <MdLightbulb className="w-5 h-5 text-amber-500" />
                 <h3 className="font-semibold text-gray-900">Mẹo hữu ích</h3>
               </div>
               <ul className="space-y-3 text-sm text-gray-600">

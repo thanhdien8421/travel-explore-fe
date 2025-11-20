@@ -159,7 +159,7 @@ export default function LocationDetail({ params }: Props) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span>{location.district || location.city || "TP. Hồ Chí Minh"}</span>
+                <span>{location.district || location.province_city || "TP. Hồ Chí Minh"}</span>
               </div>
             </div>
           </div>
@@ -296,7 +296,7 @@ export default function LocationDetail({ params }: Props) {
                     latitude={location.latitude}
                     longitude={location.longitude}
                     placeName={location.name}
-                    address={location.address_text || `${location.district}, ${location.city}`}
+                    address={location.street_address || `${location.district}, ${location.province_city}`}
                   />
                   
                   {/* Address info below map */}
@@ -308,7 +308,7 @@ export default function LocationDetail({ params }: Props) {
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900 mb-1">Địa chỉ</h4>
                         <p className="text-gray-600 text-sm">
-                          {location.address_text || `${location.district}, ${location.city}` || "Thông tin địa chỉ đang được cập nhật"}
+                          {location.street_address || location.location_description || `${location.district}, ${location.province_city}` || "Thông tin địa chỉ đang được cập nhật"}
                         </p>
                         <p className="text-xs text-gray-500 mt-2">
                           Tọa độ: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
@@ -357,7 +357,7 @@ export default function LocationDetail({ params }: Props) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                     </svg>
                     <p className="text-gray-500 mb-2">Vị trí chưa được cập nhật</p>
-                    <p className="text-sm text-gray-400">{location.address_text || `${location.district}, ${location.city}`}</p>
+                    <p className="text-sm text-gray-400">{location.street_address || location.location_description || `${location.district}, ${location.province_city}`}</p>
                   </div>
                 </div>
               )}
@@ -486,7 +486,7 @@ export default function LocationDetail({ params }: Props) {
                   <div className="flex-1">
                     <p className="text-sm text-gray-500">Địa chỉ</p>
                     <p className="font-medium text-gray-900">
-                      {location.address_text || `${location.district}, ${location.city}` || "TP. Hồ Chí Minh"}
+                      {location.street_address || `${location.district}, ${location.province_city}` || "TP. Hồ Chí Minh"}
                     </p>
                     {location.latitude && location.longitude && (
                       <p className="text-xs text-gray-500 mt-1">

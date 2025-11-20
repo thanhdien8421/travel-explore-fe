@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { MdPhotoCamera } from "react-icons/md";
 import { getSupabaseClient, STORAGE_BUCKET, isSupabaseConfigured } from "@/lib/supabase";
 import { generateSlug } from "@/lib/slug";
 
@@ -53,31 +54,75 @@ export default function SupabaseImageUpload({
       const fileExt = file.name.split('.').pop();
       let fileName: string;
       
+      console.log("placeName from props:", placeName);
+      
       if (placeName && placeName.trim()) {
         // Use slug-based filename: slug.ext (e.g., "dinh-doc-lap.jpg")
         const slug = generateSlug(placeName);
         fileName = `${slug}.${fileExt}`;
+        console.log("✅ Using slug-based name:", fileName);
       } else {
         // Fallback to timestamp-based filename if no place name
         fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        console.log("❌ placeName empty, using random:", fileName);
       }
 
       // Get Supabase client
-      const supabase = getSupabaseClient();
+      const supabaseClient = getSupabaseClient();
 
-      // Upload to Supabase Storage with upsert to handle duplicates
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: true, // If file exists, replace it (useful for updating images)
-          contentType: file.type // Set correct MIME type (image/jpeg, image/png, etc.)
-        });
-
-      if (uploadError) {
-        // If still error (e.g., permission issues), throw it
-        throw uploadError;
+      // Get signed upload URL from backend
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        throw new Error('Vui lòng đăng nhập để upload ảnh');
       }
+
+      console.log("📝 Requesting signed URL for:", fileName);
+      console.log("API endpoint:", `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/upload/signed-url`);
+      console.log("Request body:", { fileName });
+
+      const signedUrlResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/upload/signed-url`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileName }),
+      });
+
+      console.log("Response status:", signedUrlResponse.status);
+      
+      if (!signedUrlResponse.ok) {
+        const errorData = await signedUrlResponse.text();
+        console.error("❌ Error response:", errorData);
+        throw new Error(`Không thể lấy signed URL: ${signedUrlResponse.status} ${errorData}`);
+      }
+
+      const responseData = await signedUrlResponse.json();
+      console.log("✅ Signed URL received:", responseData);
+
+      const { signedUrl } = responseData;
+
+      console.log("🚀 Uploading to Supabase via signed URL:", signedUrl);
+
+      // Upload directly to Supabase using signed URL
+      // IMPORTANT: Must use PUT method for signed URL uploads, not POST
+      const uploadResponse = await fetch(signedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      console.log("Upload response status:", uploadResponse.status);
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error("❌ Upload error:", uploadResponse.status, errorText);
+        throw new Error(`Upload failed with status ${uploadResponse.status}: ${errorText}`);
+      }
+
+      console.log("✅ File uploaded successfully to Supabase");
 
       // Clean up local preview URL
       URL.revokeObjectURL(localPreviewUrl);
@@ -86,8 +131,8 @@ export default function SupabaseImageUpload({
       // Backend will use getImageUrl() to convert this to full Supabase URL
       onUploadComplete(fileName);
       
-      // For preview, we can still show the full URL
-      const { data: urlData } = supabase.storage
+      // For preview, we can generate the public URL
+      const { data: urlData } = supabaseClient.storage
         .from(STORAGE_BUCKET)
         .getPublicUrl(fileName);
       setPreviewUrl(urlData.publicUrl);
@@ -193,7 +238,7 @@ export default function SupabaseImageUpload({
           {isUploading ? (
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600 mx-auto mb-2"></div>
           ) : (
-            <div className="text-4xl text-gray-400 mx-auto mb-2">📷</div>
+            <MdPhotoCamera className="text-4xl text-gray-400 mx-auto mb-2" />
           )}
           
           <p className="text-sm text-gray-600 mb-1">
@@ -206,8 +251,11 @@ export default function SupabaseImageUpload({
       )}
 
       {isUploading && (
-        <p className="text-xs text-blue-600">
-          💡 Ảnh đang được upload lên Supabase Storage...
+        <p className="text-xs text-blue-600 flex items-center gap-2">
+          <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Ảnh đang được upload lên Supabase Storage...
         </p>
       )}
     </div>

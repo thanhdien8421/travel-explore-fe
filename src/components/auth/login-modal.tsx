@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { apiService, LoginDto } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -8,19 +9,25 @@ interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSwitchToRegister: () => void;
+  isAdminPage?: boolean;
 }
 
 export default function LoginModal({
   isOpen,
   onClose,
   onSwitchToRegister,
+  isAdminPage = false,
 }: LoginModalProps) {
+  const pathname = usePathname();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Detect if we're on admin page
+  const onAdminPage = isAdminPage || pathname === "/admin";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +50,15 @@ export default function LoginModal({
       // Clear form and close modal
       setEmail("");
       setPassword("");
-      onClose();
+      
+      // If on admin page and user is admin, reload to show content
+      if (onAdminPage && response.user.role === "ADMIN") {
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      } else {
+        onClose();
+      }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng thử lại.";
       setError(errorMessage);
@@ -57,35 +72,59 @@ export default function LoginModal({
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-[rgba(0,0,0,0.3)] backdrop-blur-sm" style={{ zIndex: 999 }}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 animate-fadeInUp" style={{ zIndex: 1000 }}>
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-6 right-6 text-gray-700 hover:text-gray-600 transition-colors"
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        {/* Close Button - Only show when not on admin page */}
+        {!onAdminPage && (
+          <button
+            onClick={onClose}
+            className="absolute top-6 right-6 text-gray-700 hover:text-gray-600 transition-colors"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        )}
 
         {/* Header */}
         <div className="mb-8">
-          <h2
-            className="text-3xl font-bold text-gray-900 mb-2"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >
-            Chào mừng trở lại
-          </h2>
-          <p className="text-gray-600">Đăng nhập để khám phá thêm nhiều điều</p>
+          {onAdminPage ? (
+            <>
+              <h2
+                className="text-3xl font-bold text-gray-900 mb-2"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                Trang quản trị
+              </h2>
+              <p className="text-gray-600">Vui lòng đăng nhập với tài khoản admin</p>
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+                <svg className="w-5 h-5 text-amber-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm text-amber-800">
+                  Chỉ tài khoản admin mới có thể truy cập trang này
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2
+                className="text-3xl font-bold text-gray-900 mb-2"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                Chào mừng trở lại
+              </h2>
+              <p className="text-gray-600">Đăng nhập để khám phá thêm nhiều điều</p>
+            </>
+          )}
         </div>
 
         {/* Error Message */}
@@ -107,7 +146,7 @@ export default function LoginModal({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder={onAdminPage ? "admin@example.com" : "you@example.com"}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
               disabled={loading}
             />
@@ -170,29 +209,33 @@ export default function LoginModal({
                 </div>
                 <span>Đang đăng nhập...</span>
               </>
+            ) : onAdminPage ? (
+              "Đăng nhập với quyền admin"
             ) : (
               "Đăng nhập"
             )}
           </button>
         </form>
 
-        {/* Register Link */}
-        <div className="mt-6 text-center">
-          <p className="text-gray-600">
-            Chưa có tài khoản?{" "}
-            <button
-              onClick={onSwitchToRegister}
-              className="text-blue-600 font-semibold hover:text-blue-700 transition-colors"
-            >
-              Đăng ký ngay
-            </button>
-          </p>
-        </div>
+        {/* Register Link - Only show when not on admin page */}
+        {!onAdminPage && (
+          <div className="mt-6 text-center">
+            <p className="text-gray-600">
+              Chưa có tài khoản?{" "}
+              <button
+                onClick={onSwitchToRegister}
+                className="text-blue-600 font-semibold hover:text-blue-700 transition-colors"
+              >
+                Đăng ký ngay
+              </button>
+            </p>
+          </div>
+        )}
 
-        {/* Divider */}
-        <div className="my-6 flex items-center">
+        {/* Divider - Only show when not on admin page */}
+        {!onAdminPage && <div className="my-6 flex items-center">
           <div className="flex-1 border-t border-gray-300"></div>
-        </div>
+        </div>}
 
         {/* Demo Info */}
         {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
