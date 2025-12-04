@@ -3,8 +3,12 @@
 import { useEffect, useState, useRef } from "react";
 import NavBar from "@/components/nav-bar";
 import LocationSearchBar from "@/components/search/location-search-bar";
+import { CustomDropdown } from "@/components/ui/custom-dropdown";
 import { apiService, PlaceSummary, Category } from "@/lib/api";
 import Link from "next/link";
+import Image from "next/image";
+import { getImageUrl } from "@/lib/image-utils";
+import { formatRating } from "@/lib/rating-utils";
 
 export default function MapPage() {
     const [searchQuery, setSearchQuery] = useState("");
@@ -14,6 +18,8 @@ export default function MapPage() {
     const [selectedCategory, setSelectedCategory] = useState("");
     const [categories, setCategories] = useState<Category[]>([]);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [isAISearch, setIsAISearch] = useState(false);
+    const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
     const mapRef = useRef(null);
 
     // Default Ho Chi Minh City center
@@ -33,8 +39,9 @@ export default function MapPage() {
         loadCategories();
     }, []);
 
-    const handleSearch = async (query: string) => {
+    const handleSearch = async (query: string, isAI?: boolean) => {
         setSearchQuery(query);
+        setIsAISearch(isAI || false);
         if (!query.trim()) {
             setLocations([]);
             return;
@@ -44,25 +51,36 @@ export default function MapPage() {
             setLoading(true);
             setError(null);
 
-            const params: {
-                q: string;
-                limit: number;
-                category?: string;
-            } = {
-                q: query,
-                limit: 50,
-            };
+            let resultData: PlaceSummary[] = [];
 
-            if (selectedCategory) {
-                params.category = selectedCategory;
+            if (isAI) {
+                // Use AI search
+                const response = await apiService.searchWithAI({ query, limit: 50 });
+                resultData = response.data || [];
+            } else {
+                // Use regular search
+                const params: {
+                    q: string;
+                    limit: number;
+                    category?: string;
+                } = {
+                    q: query,
+                    limit: 50,
+                };
+
+                if (selectedCategory) {
+                    params.category = selectedCategory;
+                }
+
+                const response = await apiService.getLocations(params);
+                resultData = response.data || [];
             }
 
-            const response = await apiService.getLocations(params);
-            setLocations(response.data || []);
+            setLocations(resultData);
 
             // Zoom to fit all markers if we have results
-            if (response.data && response.data.length > 0) {
-                zoomToMarkers(response.data);
+            if (resultData && resultData.length > 0) {
+                zoomToMarkers(resultData);
             }
         } catch (err) {
             setError("Không thể tải dữ liệu. Vui lòng thử lại.");
@@ -120,7 +138,7 @@ export default function MapPage() {
 
                 // Fix for default markers in Leaflet with Next.js
                 const DefaultIcon = L.icon({
-                    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
                     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
                     iconSize: [25, 41],
                     iconAnchor: [12, 41],
@@ -158,46 +176,129 @@ export default function MapPage() {
     // Update markers when locations change
     useEffect(() => {
         const updateMarkers = async () => {
-            const mapElement = mapRef.current as unknown as { _leafletMap?: L.Map & { placeMarkers?: L.Marker[] } };
+            const mapElement = mapRef.current as unknown as { 
+                _leafletMap?: L.Map & { 
+                    placeMarkers?: Map<string, L.Marker>;
+                    defaultIcon?: L.Icon;
+                    selectedIcon?: L.Icon;
+                } 
+            };
             if (!mapElement?._leafletMap) return;
 
             try {
                 const L = (await import('leaflet')).default;
                 const map = mapElement._leafletMap;
 
-                // Ensure placeMarkers array exists
-                if (!map.placeMarkers) {
-                    map.placeMarkers = [];
+                // Create icons if not exists
+                if (!map.defaultIcon) {
+                    map.defaultIcon = L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    });
+                }
+                if (!map.selectedIcon) {
+                    map.selectedIcon = L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    });
+                }
+
+                // Ensure placeMarkers map exists
+                if (!map.placeMarkers || !(map.placeMarkers instanceof Map)) {
+                    map.placeMarkers = new Map();
                 }
 
                 // Clear old markers
                 map.placeMarkers.forEach((marker: L.Marker) => marker.remove());
-                map.placeMarkers = [];
+                map.placeMarkers.clear();
 
                 // Add new markers
                 locations.forEach(place => {
                     if (!place.latitude || !place.longitude) return;
 
-                    const marker = L.marker([place.latitude, place.longitude]).addTo(map);
+                    const marker = L.marker([place.latitude, place.longitude], {
+                        icon: map.defaultIcon
+                    }).addTo(map);
+
+                    // Get image URL
+                    let imageUrl = place.cover_image_url;
+                    if (place.images && place.images.length > 0) {
+                        const coverImage = place.images.find(img => img.is_cover);
+                        imageUrl = coverImage ? coverImage.image_url : place.images[0].image_url;
+                    }
+                    imageUrl = imageUrl ? getImageUrl(imageUrl) : '/images/placeholder.png';
 
                     const popupContent = `
-                        <div class="min-w-48">
-                            <h3 class="font-bold text-gray-900 mb-1">${place.name}</h3>
-                            ${place.cover_image_url ? `<img src="${place.cover_image_url}" alt="${place.name}" class="w-full h-32 object-cover rounded mb-2" />` : ''}
-                            <p class="text-sm text-gray-600 mb-2">${place.district || ''}</p>
-                            ${place.average_rating && place.average_rating > 0 ? `<p class="text-sm text-yellow-600 mb-3">⭐ ${place.average_rating.toFixed(1)}/5</p>` : '<p class="text-sm text-gray-500 mb-3">Chưa có đánh giá</p>'}
-                            <a href="/locations/${place.slug}" class="inline-block bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-900 transition-colors">Xem chi tiết</a>
+                        <div class="w-64 overflow-hidden rounded-lg">
+                            <div class="relative h-32 w-full">
+                                <img src="${imageUrl}" alt="${place.name}" class="w-full h-full object-cover" />
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                                <div class="absolute bottom-2 left-2 right-2">
+                                    <h3 class="text-white font-bold text-sm line-clamp-1">${place.name}</h3>
+                                </div>
+                                <div class="absolute top-2 right-2 flex items-center gap-1 bg-yellow-500/90 text-white px-2 py-0.5 rounded-full text-xs font-medium">
+                                    <svg class="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                                    ${place.average_rating && place.average_rating > 0 ? place.average_rating.toFixed(1) : '--'}
+                                </div>
+                            </div>
+                            <div class="p-3 bg-white">
+                                <div class="flex items-center text-xs text-gray-500 mb-2">
+                                    <svg class="w-3 h-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    </svg>
+                                    ${place.ward || place.district || 'TP. Hồ Chí Minh'}
+                                </div>
+                                <p class="text-xs text-gray-600 line-clamp-5 mb-3">${place.description || 'Khám phá địa điểm thú vị này'}</p>
+                                <a href="/locations/${place.slug}" class="block w-full text-end text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-gray-600/10 transition-colors">
+                                    Xem chi tiết →
+                                </a>
+                            </div>
                         </div>
                     `;
 
-                    marker.bindPopup(popupContent);
-                    map.placeMarkers!.push(marker);
+                    marker.bindPopup(popupContent, {
+                        maxWidth: 280,
+                        className: 'custom-popup'
+                    });
+
+                    // Add click event to marker
+                    marker.on('click', () => {
+                        // Reset all markers to default icon
+                        map.placeMarkers!.forEach((m: L.Marker) => {
+                            if (map.defaultIcon) m.setIcon(map.defaultIcon);
+                        });
+                        // Set this marker to selected icon
+                        if (map.selectedIcon) marker.setIcon(map.selectedIcon);
+                        // Update selected place in sidebar
+                        setSelectedPlaceId(place.id);
+                        
+                        // Scroll to the card in sidebar
+                        setTimeout(() => {
+                            const cardElement = document.getElementById(`place-card-${place.id}`);
+                            if (cardElement) {
+                                cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        }, 100);
+                    });
+
+                    // Store marker with place id
+                    map.placeMarkers!.set(place.id, marker);
                 });
 
                 // Auto-fit bounds if we have markers
-                if (map.placeMarkers && map.placeMarkers.length > 0) {
+                if (map.placeMarkers && map.placeMarkers.size > 0) {
+                    const markers = Array.from(map.placeMarkers.values());
                     const bounds = L.latLngBounds(
-                        map.placeMarkers.map((m: L.Marker) => m.getLatLng())
+                        markers.map((m: L.Marker) => m.getLatLng())
                     );
                     map.fitBounds(bounds, { padding: [50, 50] });
                 }
@@ -208,6 +309,44 @@ export default function MapPage() {
 
         updateMarkers();
     }, [locations]);
+
+    // Handle card click - highlight marker and open popup
+    const handleCardClick = async (place: PlaceSummary) => {
+        setSelectedPlaceId(place.id);
+        
+        const mapElement = mapRef.current as unknown as { 
+            _leafletMap?: L.Map & { 
+                placeMarkers?: Map<string, L.Marker>;
+                defaultIcon?: L.Icon;
+                selectedIcon?: L.Icon;
+            } 
+        };
+        if (!mapElement?._leafletMap) return;
+
+        const L = (await import('leaflet')).default;
+        const map = mapElement._leafletMap;
+
+        if (!map.placeMarkers || !(map.placeMarkers instanceof Map)) return;
+
+        // Reset all markers to default icon
+        map.placeMarkers.forEach((marker: L.Marker) => {
+            if (map.defaultIcon) {
+                marker.setIcon(map.defaultIcon);
+            }
+        });
+
+        // Highlight selected marker
+        const selectedMarker = map.placeMarkers.get(place.id);
+        if (selectedMarker && map.selectedIcon) {
+            selectedMarker.setIcon(map.selectedIcon);
+            
+            // Pan to marker and open popup
+            if (place.latitude && place.longitude) {
+                map.setView([place.latitude, place.longitude], 16, { animate: true });
+            }
+            selectedMarker.openPopup();
+        }
+    };
 
     return (
         <div className="w-full h-screen bg-white flex flex-col">
@@ -224,18 +363,18 @@ export default function MapPage() {
                             className="w-full"
                         />
                     </div>
-                    <select
+                    <CustomDropdown
                         value={selectedCategory}
-                        onChange={(e) => handleCategoryChange(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
-                    >
-                        <option value="">Tất cả danh mục</option>
-                        {categories.map((cat) => (
-                            <option key={cat.id} value={cat.slug}>
-                                {cat.name}
-                            </option>
-                        ))}
-                    </select>
+                        onChange={(value) => handleCategoryChange(value)}
+                        placeholder="Tất cả danh mục"
+                        options={[
+                            { value: "", label: "Tất cả danh mục" },
+                            ...categories.map((cat) => ({
+                                value: cat.slug,
+                                label: cat.name,
+                            })),
+                        ]}
+                    />
                 </div>
             </div>
 
@@ -272,8 +411,16 @@ export default function MapPage() {
                 >
                     {/* Sidebar Header with Toggle Button */}
                     <div className="p-4 border-b border-gray-200 flex-shrink-0 flex items-center justify-between relative">
-                        <h3 className="font-semibold text-gray-900">
-                            {loading ? "Đang tải..." : `${locations.length} địa điểm`}
+                        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                            {isAISearch && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                                    </svg>
+                                    AI
+                                </span>
+                            )}
+                            {loading ? "Đang tìm kiếm..." : `${locations.length} địa điểm`}
                         </h3>
                         <button
                             onClick={() => setSidebarOpen(false)}
@@ -290,42 +437,82 @@ export default function MapPage() {
                     {error && <p className="px-4 py-2 text-red-600 text-sm border-b border-gray-200">{error}</p>}
 
                     {/* Scrollable Results List */}
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto p-2">
                         {locations.length === 0 && !loading && (
                             <div className="p-4 text-center text-gray-500">
-                                <p>Không tìm thấy địa điểm</p>
+                                <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <p className="text-sm">Không tìm thấy địa điểm</p>
+                                <p className="text-xs text-gray-400 mt-1">Thử tìm kiếm với từ khóa khác</p>
                             </div>
                         )}
-                        {locations.map((place) => (
-                            <Link
-                                key={place.id}
-                                href={`/locations/${place.slug}`}
-                                className="block p-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                            >
-                                <div className="flex gap-3">
-                                    {place.cover_image_url && (
-                                        <img
-                                            src={place.cover_image_url}
+                        {locations.map((place) => {
+                            // Get image URL
+                            let imageUrl = place.cover_image_url;
+                            if (place.images && place.images.length > 0) {
+                                const coverImage = place.images.find(img => img.is_cover);
+                                imageUrl = coverImage ? coverImage.image_url : place.images[0].image_url;
+                            }
+                            imageUrl = imageUrl ? getImageUrl(imageUrl) : '/images/placeholder.png';
+
+                            const isSelected = selectedPlaceId === place.id;
+
+                            return (
+                                <article
+                                    key={place.id}
+                                    id={`place-card-${place.id}`}
+                                    onClick={() => handleCardClick(place)}
+                                    className={`bg-white rounded-xl my-1.5 border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex gap-3 p-3 cursor-pointer ${
+                                        isSelected 
+                                            ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' 
+                                            : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                                    }`}
+                                >
+                                    {/* Image */}
+                                    <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
+                                        <Image
+                                            src={imageUrl}
                                             alt={place.name}
-                                            className="w-16 h-16 object-cover rounded flex-shrink-0"
+                                            fill
+                                            className="object-cover"
+                                            sizes="80px"
                                         />
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-sm text-gray-900 truncate">{place.name}</p>
-                                        <p className="text-xs text-gray-600 truncate">{place.district}</p>
-                                        {place.average_rating && place.average_rating > 0 ? (
-                                            <p className="text-xs text-yellow-600 mt-1">
-                                                ⭐ {place.average_rating.toFixed(1)}/5
-                                            </p>
-                                        ) : (
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                Chưa có đánh giá
-                                            </p>
-                                        )}
+                                        {/* Rating badge on image */}
+                                        <div className="absolute top-1 right-1 flex items-center gap-0.5 bg-yellow-500/90 text-white px-1.5 py-0.5 rounded-full text-[10px] font-medium">
+                                            <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 20 20">
+                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                            </svg>
+                                            {formatRating(place.average_rating, "- -")}
+                                        </div>
                                     </div>
-                                </div>
-                            </Link>
-                        ))}
+
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0 flex flex-col">
+                                        <Link 
+                                            href={`/locations/${place.slug}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="font-semibold text-sm text-gray-900 hover:text-blue-600 transition-colors truncate"
+                                        >
+                                            {place.name}
+                                        </Link>
+                                        
+                                        <div className="flex items-center text-xs text-gray-500 mt-1">
+                                            <svg className="w-3 h-3 mr-1 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                            <span className="truncate">{place.ward || place.district || 'TP. Hồ Chí Minh'}</span>
+                                        </div>
+
+                                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                            {place.description || 'Khám phá địa điểm thú vị này'}
+                                        </p>
+                                    </div>
+                                </article>
+                            );
+                        })}
                     </div>
                 </div>
             </div>

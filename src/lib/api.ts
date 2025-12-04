@@ -59,6 +59,7 @@ export interface PlaceDetail {
   price_info?: string | null;      // Price information
   contact_info?: string | null;    // Contact details
   tips_notes?: string | null;      // Visitor tips
+  summary?: string | null;         // AI-generated summary from reviews
   is_featured: boolean;            // Featured flag
   average_rating?: number | null;  // Average rating
   categories?: Category[];         // Array of categories (new - M2M)
@@ -67,6 +68,43 @@ export interface PlaceDetail {
   updated_at?: Date;               // Last update timestamp
   images?: PlaceImage[];           // Array of images
   reviews?: Review[];              // Array of reviews
+}
+
+// ==================== TRAVEL PLAN TYPES ====================
+
+// Travel plan (list view)
+export interface TravelPlan {
+  id: string;
+  name: string;
+  item_count: number;
+  created_at: string;
+}
+
+// Place in travel plan item
+export interface TravelPlanItemPlace {
+  id: string;
+  name: string;
+  slug: string;
+  latitude: number | null;
+  longitude: number | null;
+  cover_image_url: string | null;
+  ward?: string;
+  average_rating?: number;
+}
+
+// Travel plan item
+export interface TravelPlanItem {
+  added_at: string;
+  order: number;
+  place: TravelPlanItemPlace;
+}
+
+// Travel plan detail (with items)
+export interface TravelPlanDetail {
+  id: string;
+  name: string;
+  created_at?: string;
+  items: TravelPlanItem[];
 }
 
 // Legacy interfaces for backward compatibility
@@ -112,7 +150,7 @@ export interface User {
   id: string;
   email: string;
   fullName: string;
-  role: "USER" | "ADMIN";
+  role: "USER" | "ADMIN" | "PARTNER" | "CONTRIBUTOR";
   createdAt: string;
 }
 
@@ -208,6 +246,7 @@ export interface AdminPlacesResponse {
     isFeatured: boolean;
     isActive: boolean;
     averageRating: number;
+    status: "PENDING" | "APPROVED" | "REJECTED";
     categories: Array<{ categoryId: string; category: { id: string; name: string } }>;
     createdAt: string;
     images?: PlaceImage[];
@@ -241,11 +280,158 @@ export interface StatisticsResponse {
   };
 }
 
+// ==================== BOOKING TYPES ====================
+
+export interface Booking {
+  id: string;
+  placeId: string;
+  userId: string;
+  bookingDate: string;
+  guestCount: number;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  note?: string | null;
+  createdAt: string;
+  place?: {
+    id: string;
+    name: string;
+    slug: string;
+    coverImageUrl?: string | null;
+  };
+  user?: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+}
+
+export interface BookingsResponse {
+  data: Booking[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+// ==================== PARTNER TYPES ====================
+
+export interface PartnerLead {
+  id: string;
+  businessName: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt: string;
+}
+
+export interface PartnerLeadsResponse {
+  data: PartnerLead[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+// ==================== USER MANAGEMENT TYPES ====================
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: "ADMIN" | "USER" | "PARTNER" | "CONTRIBUTOR";
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AdminUsersResponse {
+  data: AdminUser[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface UserStatsResponse {
+  totalUsers: number;
+  activeUsers: number;
+  inactiveUsers: number;
+  byRole: {
+    ADMIN: number;
+    USER: number;
+    PARTNER: number;
+    CONTRIBUTOR: number;
+  };
+}
+
+// ==================== GENERIC RESPONSE TYPES ====================
+
+export interface MessageResponse {
+  message: string;
+}
+
+export interface CreateTravelPlanResponse {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface AddPlanItemResponse {
+  item?: {
+    added_at: string;
+    order: number;
+    place: TravelPlanItemPlace;
+  };
+}
+
+// Place with status (for admin/partner/contributor views)
+export interface PlaceWithStatus extends PlaceDetail {
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdBy?: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+}
+
+// Pending place for approvals
+export interface PendingPlace {
+  id: string;
+  name: string;
+  description: string | null;
+  slug: string;
+  district: string | null;
+  coverImageUrl: string | null;
+  createdAt: string;
+  createdBy?: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  images?: PlaceImage[];
+}
+
 class ApiService {
   private baseUrl: string;
 
   constructor() {
     this.baseUrl = API_BASE_URL;
+  }
+
+  // Handle token expiration - logout and redirect to home
+  private handleTokenExpired() {
+    if (typeof window !== "undefined") {
+      console.log("Token expired - logging out and redirecting to home");
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user");
+      window.location.href = "/";
+    }
   }
 
   private async fetchWithError(url: string, options?: RequestInit) {
@@ -269,14 +455,22 @@ class ApiService {
         const error = await response.json();
         const errorMsg = error.message || error.error || `HTTP ${response.status}: ${response.statusText}`;
         
-        // Debug 403 errors specifically
-        if (response.status === 403) {
+        // Handle 401 Unauthorized - token expired or invalid
+        if (response.status === 401) {
+          console.error("401 Unauthorized - Token expired or invalid");
+          this.handleTokenExpired();
+          throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        }
+        
+        // Handle 403 Forbidden with Authorization header - likely token issue
+        if (response.status === 403 && finalHeaders["Authorization"]) {
           console.error("403 Forbidden - Token issue:", {
             status: response.status,
             message: errorMsg,
             url: url,
-            headers: finalHeaders,
           });
+          this.handleTokenExpired();
+          throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
         }
         
         throw new Error(errorMsg);
@@ -292,6 +486,20 @@ class ApiService {
       console.error("API Error:", error);
       throw error;
     }
+  }
+
+  // AI-powered natural language search for places
+  async searchWithAI(params: {
+    query: string;                  // Natural language search query
+    limit?: number;                 // Max results (default 3)
+  }): Promise<PlacesResponse> {
+    const queryParams = new URLSearchParams();
+    queryParams.append("query", params.query);
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+
+    const url = `${this.baseUrl}/api/places/search-ai?${queryParams}`;
+    const result = await this.fetchWithError(url);
+    return result as PlacesResponse;
   }
 
   // Search places with advanced filters (new API)
@@ -375,7 +583,7 @@ class ApiService {
     // Transform PlaceSummary to Location for backward compatibility
     const locations: Location[] = (result.data || []).map((place: PlaceSummary) => ({
       ...place,
-      location: place.district || "",
+      location: place.ward || "",
       image: place.cover_image_url || "",
       rating: place.average_rating || 0,
       createdAt: new Date().toISOString(),
@@ -467,6 +675,7 @@ class ApiService {
     search?: string;
     category?: string;
     ward?: string;
+    status?: string;
     sortBy?: "name" | "createdAt" | "featured";
     sortOrder?: "asc" | "desc";
     limit?: number;
@@ -477,6 +686,7 @@ class ApiService {
     if (params?.search) queryParams.append("search", params.search);
     if (params?.category) queryParams.append("category", params.category);
     if (params?.ward) queryParams.append("ward", params.ward);
+    if (params?.status) queryParams.append("status", params.status);
     if (params?.sortBy) queryParams.append("sortBy", params.sortBy);
     if (params?.sortOrder) queryParams.append("sortOrder", params.sortOrder);
     if (params?.limit) queryParams.append("limit", params.limit.toString());
@@ -505,6 +715,178 @@ class ApiService {
 
     const url = `${this.baseUrl}/api/admin/places/stats${queryParams.toString() ? `?${queryParams}` : ""}`;
     return this.fetchWithError(url, { headers }) as Promise<AdminStats>;
+  }
+
+  // Approve a pending place
+  async approvePlace(id: string, token: string): Promise<PlaceDetail> {
+    const response = await this.fetchWithError(`${this.baseUrl}/api/admin/places/${id}/approve`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    return response.place;
+  }
+
+  // Reject a pending place
+  async rejectPlace(id: string, token: string): Promise<PlaceDetail> {
+    const response = await this.fetchWithError(`${this.baseUrl}/api/admin/places/${id}/reject`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    return response.place;
+  }
+
+  // Generate AI summary for a place from reviews
+  async generatePlaceSummary(id: string, token: string): Promise<{ summary: string }> {
+    const response = await this.fetchWithError(`${this.baseUrl}/api/admin/places/${id}/summary`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    return response;
+  }
+
+  // ============ BOOKING ENDPOINTS ============
+
+  // Create a booking
+  async createBooking(data: {
+    placeId: string;
+    bookingDate: string;
+    guestCount: number;
+    note?: string;
+  }, token: string): Promise<Booking> {
+    return this.fetchWithError(`${this.baseUrl}/api/bookings`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Get current user's bookings
+  async getUserBookings(params?: {
+    page?: number;
+    limit?: number;
+  }, token?: string): Promise<BookingsResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${this.baseUrl}/api/bookings${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return this.fetchWithError(url, { headers });
+  }
+
+  // Cancel a booking (user)
+  async cancelBooking(bookingId: string, token: string): Promise<MessageResponse> {
+    return this.fetchWithError(`${this.baseUrl}/api/bookings/${bookingId}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Get all bookings (admin only)
+  async getAllBookings(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }, token?: string): Promise<BookingsResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.status) queryParams.append("status", params.status);
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${this.baseUrl}/api/admin/bookings${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return this.fetchWithError(url, { headers });
+  }
+
+  // Confirm a booking (admin)
+  async confirmBooking(bookingId: string, token: string): Promise<Booking> {
+    return this.fetchWithError(`${this.baseUrl}/api/admin/bookings/${bookingId}/confirm`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Cancel a booking (admin)
+  async cancelBookingAdmin(bookingId: string, token: string): Promise<Booking> {
+    return this.fetchWithError(`${this.baseUrl}/api/admin/bookings/${bookingId}/cancel`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // ============ PARTNER ENDPOINTS ============
+
+  // Register as a partner
+  async registerPartner(data: {
+    businessName: string;
+    contactName: string;
+    phone: string;
+    email: string;
+  }): Promise<PartnerLead> {
+    return this.fetchWithError(`${this.baseUrl}/api/partners/register`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Get all partner leads (admin only)
+  async getAllPartnerLeads(params?: {
+    page?: number;
+    limit?: number;
+  }, token?: string): Promise<PartnerLeadsResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${this.baseUrl}/api/admin/partners${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return this.fetchWithError(url, { headers });
+  }
+
+  // Get partner lead by ID (admin)
+  async getPartnerLeadById(id: string, token?: string): Promise<PartnerLead> {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    return this.fetchWithError(`${this.baseUrl}/api/admin/partners/${id}`, { headers });
+  }
+
+  // Delete partner lead (admin)
+  async deletePartnerLead(id: string, token: string): Promise<MessageResponse> {
+    return this.fetchWithError(`${this.baseUrl}/api/admin/partners/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
   }
 
   // ============ AUTH ENDPOINTS ============
@@ -554,6 +936,516 @@ class ApiService {
   // Get user's visit history
   async getVisitHistory(token: string): Promise<VisitHistory[]> {
     return this.fetchWithError(`${this.baseUrl}/api/me/visits`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // ============ USER MANAGEMENT ENDPOINTS (Admin) ============
+
+  // Get all users with filtering and pagination
+  async getAllUsers(params?: {
+    search?: string;
+    role?: "ADMIN" | "USER" | "PARTNER" | "CONTRIBUTOR";
+    isActive?: boolean;
+    sortBy?: "fullName" | "email" | "createdAt" | "role";
+    sortOrder?: "asc" | "desc";
+    limit?: number;
+    page?: number;
+  }, token?: string): Promise<AdminUsersResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.role) queryParams.append("role", params.role);
+    if (params?.isActive !== undefined) queryParams.append("isActive", params.isActive.toString());
+    if (params?.sortBy) queryParams.append("sortBy", params.sortBy);
+    if (params?.sortOrder) queryParams.append("sortOrder", params.sortOrder);
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.page) queryParams.append("page", params.page.toString());
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${this.baseUrl}/api/admin/users${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return this.fetchWithError(url, { headers });
+  }
+
+  // Get user statistics
+  async getUserStats(token?: string): Promise<UserStatsResponse> {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    return this.fetchWithError(`${this.baseUrl}/api/admin/users/stats`, { headers });
+  }
+
+  // Get user by ID
+  async getUserByIdAdmin(id: string, token?: string): Promise<AdminUser> {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    return this.fetchWithError(`${this.baseUrl}/api/admin/users/${id}`, { headers });
+  }
+
+  // Create a new user (admin)
+  async createUser(data: {
+    email: string;
+    password: string;
+    fullName: string;
+    role: "ADMIN" | "USER" | "PARTNER" | "CONTRIBUTOR";
+  }, token: string): Promise<AdminUser> {
+    return this.fetchWithError(`${this.baseUrl}/api/admin/users`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update user role
+  async updateUserRole(userId: string, role: "ADMIN" | "USER" | "PARTNER" | "CONTRIBUTOR", token: string): Promise<AdminUser> {
+    return this.fetchWithError(`${this.baseUrl}/api/admin/users/${userId}/role`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  // Create partner account from lead
+  async createPartnerAccount(leadId: string, password: string, token: string): Promise<AdminUser> {
+    return this.fetchWithError(`${this.baseUrl}/api/admin/partners/${leadId}/create-account`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ password }),
+    });
+  }
+
+  // Delete user (soft delete by default, permanent=true for hard delete)
+  async deleteUser(userId: string, token: string, permanent: boolean = false): Promise<MessageResponse> {
+    const queryParams = permanent ? "?permanent=true" : "";
+    return this.fetchWithError(`${this.baseUrl}/api/admin/users/${userId}${queryParams}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Restore a soft-deleted user
+  async restoreUser(userId: string, token: string): Promise<AdminUser> {
+    return this.fetchWithError(`${this.baseUrl}/api/admin/users/${userId}/restore`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Delete place (soft delete by default, permanent=true for hard delete)
+  async deletePlaceWithOption(id: string, token: string, permanent: boolean = false): Promise<void> {
+    const queryParams = permanent ? "?permanent=true" : "";
+    await this.fetchWithError(`${this.baseUrl}/api/admin/places/${id}${queryParams}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Restore a soft-deleted place
+  async restorePlace(id: string, token: string): Promise<PlaceDetail> {
+    return this.fetchWithError(`${this.baseUrl}/api/admin/places/${id}/restore`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // ============ PARTNER DASHBOARD ENDPOINTS ============
+
+  // Get partner dashboard statistics
+  async getPartnerStats(token: string): Promise<{
+    totalPlaces: number;
+    approvedPlaces: number;
+    pendingPlaces: number;
+    rejectedPlaces: number;
+    totalBookings: number;
+    pendingBookings: number;
+    confirmedBookings: number;
+    cancelledBookings: number;
+  }> {
+    return this.fetchWithError(`${this.baseUrl}/api/partner/stats`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Get partner's places
+  async getPartnerPlaces(params?: {
+    search?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }, token?: string): Promise<{
+    data: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      description: string | null;
+      ward: string;
+      district: string | null;
+      coverImageUrl: string | null;
+      status: "PENDING" | "APPROVED" | "REJECTED";
+      isActive: boolean;
+      isFeatured: boolean;
+      averageRating: string;
+      createdAt: string;
+      categories: Array<{ id: string; name: string; slug: string }>;
+      images?: Array<{
+        id: string;
+        image_url: string;
+        is_cover: boolean;
+      }>;
+      bookingsCount: number;
+      reviewsCount: number;
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.status) queryParams.append("status", params.status);
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${this.baseUrl}/api/partner/places${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return this.fetchWithError(url, { headers });
+  }
+
+  // Get bookings for partner's places
+  async getPartnerBookings(params?: {
+    status?: "PENDING" | "CONFIRMED" | "CANCELLED";
+    page?: number;
+    limit?: number;
+  }, token?: string): Promise<{
+    data: Array<{
+      id: string;
+      place: {
+        id: string;
+        name: string;
+        slug: string;
+        coverImageUrl: string | null;
+      };
+      user: {
+        id: string;
+        fullName: string;
+        email: string;
+      };
+      bookingDate: string;
+      guestCount: number;
+      status: "PENDING" | "CONFIRMED" | "CANCELLED";
+      note: string | null;
+      createdAt: string;
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append("status", params.status);
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${this.baseUrl}/api/partner/bookings${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return this.fetchWithError(url, { headers });
+  }
+
+  // Update booking status (partner)
+  async updatePartnerBookingStatus(bookingId: string, status: "CONFIRMED" | "CANCELLED", token: string): Promise<Booking> {
+    return this.fetchWithError(`${this.baseUrl}/api/partner/bookings/${bookingId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // Create a new place (partner)
+  async createPartnerPlace(data: CreatePlaceDto, token: string): Promise<PlaceDetail> {
+    return this.fetchWithError(`${this.baseUrl}/api/partner/places`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update partner's place
+  async updatePartnerPlace(id: string, data: Partial<CreatePlaceDto>, token: string): Promise<PlaceDetail> {
+    return this.fetchWithError(`${this.baseUrl}/api/partner/places/${id}`, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ============ CONTRIBUTOR DASHBOARD ENDPOINTS ============
+
+  // Get contributor dashboard statistics
+  async getContributorStats(token: string): Promise<{
+    totalPlaces: number;
+    approvedPlaces: number;
+    pendingPlaces: number;
+    rejectedPlaces: number;
+    totalReviews: number;
+  }> {
+    return this.fetchWithError(`${this.baseUrl}/api/contributor/stats`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Get contributor's contributions (places)
+  async getContributorContributions(params?: {
+    search?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }, token?: string): Promise<{
+    data: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      description: string | null;
+      ward: string;
+      district: string | null;
+      coverImageUrl: string | null;
+      status: "PENDING" | "APPROVED" | "REJECTED";
+      isActive: boolean;
+      averageRating: string;
+      createdAt: string;
+      categories: Array<{ id: string; name: string; slug: string }>;
+      images?: Array<{
+        id: string;
+        image_url: string;
+        is_cover: boolean;
+      }>;
+      reviewsCount: number;
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.status) queryParams.append("status", params.status);
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${this.baseUrl}/api/contributor/places${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return this.fetchWithError(url, { headers });
+  }
+
+  // Create a new place (contributor)
+  async createContributorPlace(data: CreatePlaceDto, token: string): Promise<PlaceDetail> {
+    return this.fetchWithError(`${this.baseUrl}/api/contributor/places`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update contributor's place (only if still PENDING)
+  async updateContributorPlace(id: string, data: Partial<CreatePlaceDto>, token: string): Promise<PlaceDetail> {
+    return this.fetchWithError(`${this.baseUrl}/api/contributor/places/${id}`, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ==================== USER PROFILE ====================
+
+  // Update user profile
+  async updateUserProfile(data: { fullName?: string }, token: string): Promise<{ message: string }> {
+    return this.fetchWithError(`${this.baseUrl}/api/users/profile`, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Change password
+  async changePassword(data: { currentPassword: string; newPassword: string }, token: string): Promise<{ message: string }> {
+    return this.fetchWithError(`${this.baseUrl}/api/users/change-password`, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Remove visit from history
+  async removeVisit(placeId: string, token: string): Promise<{ message: string }> {
+    return this.fetchWithError(`${this.baseUrl}/api/me/visits/${placeId}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Get user reviews
+  async getUserReviews(token: string): Promise<Array<{
+    id: string;
+    rating: number;
+    comment: string | null;
+    createdAt: string;
+    place: {
+      id: string;
+      name: string;
+      slug: string;
+      coverImageUrl?: string | null;
+      cover_image_url?: string | null;
+    };
+  }>> {
+    return this.fetchWithError(`${this.baseUrl}/api/users/reviews`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+  }
+
+  // ==================== TRAVEL PLANS (Real API at /api/plans) ====================
+
+  // Get user's travel plans
+  async getTravelPlans(token: string): Promise<TravelPlan[]> {
+    return this.fetchWithError(`${this.baseUrl}/api/plans`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    }) as Promise<TravelPlan[]>;
+  }
+
+  // Get travel plan detail with items
+  async getTravelPlanDetail(planId: string, token: string): Promise<TravelPlanDetail | null> {
+    try {
+      return await this.fetchWithError(`${this.baseUrl}/api/plans/${planId}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      }) as TravelPlanDetail;
+    } catch (err: unknown) {
+      const error = err as Error;
+      if (error.message?.includes('404')) return null;
+      throw err;
+    }
+  }
+
+  // Create travel plan (only name required)
+  async createTravelPlan(name: string, token: string): Promise<TravelPlan> {
+    const response = await this.fetchWithError(`${this.baseUrl}/api/plans`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name }),
+    }) as CreateTravelPlanResponse;
+    return {
+      id: response.id,
+      name: response.name,
+      item_count: 0,
+      created_at: response.created_at,
+    };
+  }
+
+  // Delete travel plan
+  async deleteTravelPlan(planId: string, token: string): Promise<{ message: string }> {
+    await this.fetchWithError(`${this.baseUrl}/api/plans/${planId}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    return { message: "Plan deleted successfully" };
+  }
+
+  // Add place to travel plan
+  async addPlaceToTravelPlan(planId: string, placeId: string, token: string): Promise<TravelPlanItem> {
+    const response = await this.fetchWithError(`${this.baseUrl}/api/plans/${planId}/items`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ placeId }),
+    }) as AddPlanItemResponse;
+    return {
+      added_at: response.item?.added_at || new Date().toISOString(),
+      order: response.item?.order || 0,
+      place: response.item?.place || {
+        id: placeId,
+        name: '',
+        slug: '',
+        latitude: null,
+        longitude: null,
+        cover_image_url: null,
+      },
+    };
+  }
+
+  // Remove place from travel plan (uses placeId, not itemId)
+  async removePlaceFromTravelPlan(planId: string, placeId: string, token: string): Promise<void> {
+    await this.fetchWithError(`${this.baseUrl}/api/plans/${planId}/items/${placeId}`, {
+      method: "DELETE",
       headers: {
         "Authorization": `Bearer ${token}`,
       },

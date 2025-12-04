@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import LoginModal from "@/components/auth/login-modal";
 import RegisterModal from "@/components/auth/register-modal";
+import SearchOverlay from "@/components/search/search-overlay";
 
 interface NavBarProps {
     onSearchClick?: () => void;
@@ -15,14 +16,25 @@ export default function NavBar({ onSearchClick }: NavBarProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
     const { isAuthenticated, user, logout } = useAuth();
     const pathname = usePathname();
 
     const navigation = [
         { name: "Trang chủ", href: "/", current: pathname === "/" },
         { name: "Địa điểm", href: "/locations", current: pathname.startsWith("/locations") },
+        // Role-based navigation
         ...(isAuthenticated && user?.role === "ADMIN"
-            ? [{ name: "Quản lý", href: "/admin", current: pathname === "/admin" }]
+            ? [{ name: "Quản lý", href: "/admin", current: pathname.startsWith("/admin") }]
+            : []),
+        ...(isAuthenticated && user?.role === "PARTNER"
+            ? [{ name: "Quản lý", href: "/partner/dashboard", current: pathname.startsWith("/partner") }]
+            : []),
+        ...(isAuthenticated && user?.role === "CONTRIBUTOR"
+            ? [{ name: "Quản lý", href: "/contributor/dashboard", current: pathname.startsWith("/contributor") }]
+            : []),
+        ...(isAuthenticated && user?.role === "USER"
+            ? [{ name: "Cá nhân", href: "/user", current: pathname.startsWith("/user") }]
             : []),
     ];
 
@@ -62,6 +74,8 @@ export default function NavBar({ onSearchClick }: NavBarProps) {
                             onClick={() => {
                                 if (onSearchClick) {
                                     onSearchClick();
+                                } else {
+                                    setIsSearchOpen(true);
                                 }
                             }}
                             className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
@@ -77,7 +91,7 @@ export default function NavBar({ onSearchClick }: NavBarProps) {
                             <div className="hidden md:flex items-center space-x-4">
                                 {/* User Info - Clickable to Profile */}
                                 <Link 
-                                    href="/profile"
+                                    href="/user/profile"
                                     className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
                                 >
                                     <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
@@ -186,6 +200,14 @@ export default function NavBar({ onSearchClick }: NavBarProps) {
                     setIsLoginOpen(true);
                 }}
             />
+
+            {/* Built-in Search Overlay - only render if no external handler */}
+            {!onSearchClick && (
+                <SearchOverlay 
+                    isOpen={isSearchOpen} 
+                    onClose={() => setIsSearchOpen(false)} 
+                />
+            )}
         </nav>
     );
 }

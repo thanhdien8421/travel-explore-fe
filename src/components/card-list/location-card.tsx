@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { getImageUrl } from "@/lib/image-utils";
 import { PlaceSummary } from "@/lib/api";
+import { getCategoryBadgeClasses, DEFAULT_BADGE_CLASSES } from "@/lib/category-colors";
+import { formatRating } from "@/lib/rating-utils";
 
 interface LocationCardProps {
   location: PlaceSummary;
@@ -46,10 +48,24 @@ export default function LocationCard({ location }: LocationCardProps) {
           {/* Overlay gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60"></div>
 
-          {/* Category tag with featured */}
+          {/* Category tags with featured */}
           <div className="absolute top-2 sm:top-4 left-2 sm:left-4 flex flex-col gap-1 sm:gap-2">
-            <div className="bg-blue-600 bg-opacity-90 backdrop-blur-sm text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-medium uppercase tracking-wide w-fit">
-              Điểm tham quan
+            {/* Categories or fallback */}
+            <div className="flex flex-wrap gap-1">
+              {location.categories && location.categories.length > 0 ? (
+                location.categories.slice(0, 2).map((category) => (
+                  <div
+                    key={category.id}
+                    className={`${getCategoryBadgeClasses(category.slug)} px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-medium w-fit`}
+                  >
+                    {category.name}
+                  </div>
+                ))
+              ) : (
+                <div className={`${DEFAULT_BADGE_CLASSES} px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-medium w-fit`}>
+                  Chưa phân loại
+                </div>
+              )}
             </div>
             {location.is_featured && (
               <div className="flex items-center gap-1 bg-purple-600 bg-opacity-90 backdrop-blur-sm text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-semibold w-fit">
@@ -70,18 +86,12 @@ export default function LocationCard({ location }: LocationCardProps) {
               {location.name}
             </h3>
             {/* Rating badge */}
-            {location.average_rating !== undefined && location.average_rating !== null && location.average_rating > 0 ? (
-              <div className="flex items-center gap-1 bg-[rgba(255,255,0,0.2)] bg-opacity-90 backdrop-blur-sm text-yellow-500 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-semibold ml-1 sm:ml-2 flex-shrink-0">
+              <div className="flex items-center gap-1 bg-yellow-500/20 bg-opacity-90 backdrop-blur-sm text-yellow-500 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-semibold ml-1 sm:ml-2 flex-shrink-0">
                 <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
-                {location.average_rating.toFixed(1)}
+                {formatRating(location.average_rating)}
               </div>
-            ) : (
-              <div className="text-xs text-gray-500 ml-1 sm:ml-2 flex-shrink-0">
-                Chưa có đánh giá
-              </div>
-            )}
           </div>
         </div>
 
@@ -93,7 +103,7 @@ export default function LocationCard({ location }: LocationCardProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            {location.district || "TP. Hồ Chí Minh"}
+            {location.ward || "TP. Hồ Chí Minh"}
           </div>
 
           {/* Description */}

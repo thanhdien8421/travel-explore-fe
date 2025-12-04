@@ -28,7 +28,7 @@ export default function LocationMap({ latitude, longitude, placeName, address }:
         
         // Fix for default markers in Leaflet with Next.js
         const DefaultIcon = L.icon({
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+          iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
           shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
           iconSize: [25, 41],
           iconAnchor: [12, 41],
@@ -52,18 +52,18 @@ export default function LocationMap({ latitude, longitude, placeName, address }:
           const marker = L.marker([latitude, longitude]).addTo(map);
           
           // Create popup content (user can click marker to view)
-          const popupContent = `
-            <div class="text-center p-2">
-              <h3 class="font-bold text-lg mb-2 text-gray-800">${placeName}</h3>
-              ${address ? `<p class="text-sm text-gray-600 mb-2">${address}</p>` : ''}
-              <p class="text-xs text-gray-500">
-                <span class="font-medium">Tọa độ:</span><br/>
-                ${latitude.toFixed(6)}, ${longitude.toFixed(6)}
-              </p>
-            </div>
-          `;
+          // const popupContent = `
+          //   <div class="text-center p-2">
+          //     <h3 class="font-bold text-lg mb-2 text-gray-800">${placeName}</h3>
+          //     ${address ? `<p class="text-sm text-gray-600 mb-2">${address}</p>` : ''}
+          //     <p class="text-xs text-gray-500">
+          //       <span class="font-medium">Tọa độ:</span><br/>
+          //       ${latitude.toFixed(6)}, ${longitude.toFixed(6)}
+          //     </p>
+          //   </div>
+          // `;
           
-          marker.bindPopup(popupContent);
+          // marker.bindPopup(popupContent);
 
           // Add a small delay to ensure the map loads properly
           setTimeout(() => {
@@ -110,7 +110,10 @@ export default function LocationMap({ latitude, longitude, placeName, address }:
       {loading && (
         <div className="absolute inset-0 bg-gray-50 flex items-center justify-center z-10">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <div className="relative mx-auto mb-4 w-8 h-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-gray-300"></div>
+              <div className="animate-spin absolute top-0 left-0 w-8 h-8 rounded-full border-4 border-transparent border-t-gray-600 border-r-gray-600"></div>
+            </div>
             <p className="text-gray-600 text-sm">Đang tải bản đồ...</p>
           </div>
         </div>

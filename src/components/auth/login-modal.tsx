@@ -70,13 +70,13 @@ export default function LoginModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-[rgba(0,0,0,0.3)] backdrop-blur-sm" style={{ zIndex: 999 }}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 animate-fadeInUp" style={{ zIndex: 1000 }}>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm" style={{ zIndex: 999 }}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 animate-in fade-in zoom-in duration-300 relative" style={{ zIndex: 1000 }}>
         {/* Close Button - Only show when not on admin page */}
         {!onAdminPage && (
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 text-gray-700 hover:text-gray-600 transition-colors"
+            className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
           >
             <svg
               className="w-6 h-6"
@@ -105,7 +105,7 @@ export default function LoginModal({
                 Trang quản trị
               </h2>
               <p className="text-gray-600">Vui lòng đăng nhập với tài khoản admin</p>
-              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
                 <svg className="w-5 h-5 text-amber-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
@@ -129,8 +129,13 @@ export default function LoginModal({
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800 text-sm">{error}</p>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
           </div>
         )}
 
@@ -147,7 +152,7 @@ export default function LoginModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={onAdminPage ? "admin@example.com" : "you@example.com"}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
               disabled={loading}
             />
           </div>
@@ -164,13 +169,13 @@ export default function LoginModal({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Nhập mật khẩu"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
                 disabled={loading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 {showPassword ? (
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -199,14 +204,11 @@ export default function LoginModal({
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-3 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
-                <div className="relative w-5 h-5">
-                  <div className="absolute inset-0 rounded-full border-2 border-gray-300"></div>
-                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-white border-r-white animate-spin"></div>
-                </div>
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                 <span>Đang đăng nhập...</span>
               </>
             ) : onAdminPage ? (
@@ -224,7 +226,7 @@ export default function LoginModal({
               Chưa có tài khoản?{" "}
               <button
                 onClick={onSwitchToRegister}
-                className="text-blue-600 font-semibold hover:text-blue-700 transition-colors"
+                className="text-gray-900 font-semibold hover:underline transition-colors"
               >
                 Đăng ký ngay
               </button>
@@ -234,7 +236,7 @@ export default function LoginModal({
 
         {/* Divider - Only show when not on admin page */}
         {!onAdminPage && <div className="my-6 flex items-center">
-          <div className="flex-1 border-t border-gray-300"></div>
+          <div className="flex-1 border-t border-gray-200"></div>
         </div>}
 
         {/* Demo Info */}

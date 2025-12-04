@@ -7,6 +7,7 @@ import LocationBadge from "@/components/location-badge";
 import SearchOverlay from "@/components/search/search-overlay";
 import LocationCard from "@/components/card-list/location-card";
 import LocationSearchBar from "@/components/search/location-search-bar";
+import { CustomDropdown } from "@/components/ui/custom-dropdown";
 import { apiService, PlaceSummary, Category } from "@/lib/api";
 import Link from "next/link";
 
@@ -15,9 +16,9 @@ export default function LocationsPage() {
     const router = useRouter();
     const queryQ = searchParams.get("q") || "";
     const queryPage = searchParams.get("page") || "1";
-    
+
     const ITEMS_PER_PAGE = 12;
-    
+
     const [locations, setLocations] = useState<PlaceSummary[]>([]);
     const [filteredLocations, setFilteredLocations] = useState<PlaceSummary[]>([]);
     const [loading, setLoading] = useState(true);
@@ -29,6 +30,7 @@ export default function LocationsPage() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [currentPage, setCurrentPage] = useState(parseInt(queryPage) || 1);
     const [totalResults, setTotalResults] = useState(0);
+    const [isAISearch, setIsAISearch] = useState(false);
 
     // Fetch categories on mount
     useEffect(() => {
@@ -47,14 +49,25 @@ export default function LocationsPage() {
     useEffect(() => {
         fetchLocations(currentPage);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentPage, searchQuery, selectedCategory, sortBy]);
+    }, [currentPage, searchQuery, selectedCategory, sortBy, isAISearch]);
 
     const fetchLocations = async (page: number) => {
         try {
             setLoading(true);
             setError(null);
-            
-            // Build query parameters
+
+            // Use AI search if enabled and there's a query
+            if (isAISearch && searchQuery.trim()) {
+                const response = await apiService.searchWithAI({
+                    query: searchQuery.trim(),
+                    limit: ITEMS_PER_PAGE
+                });
+                setLocations(response.data || []);
+                setTotalResults(response.pagination?.totalItems || response.data?.length || 0);
+                return;
+            }
+
+            // Build query parameters for regular search
             const queryParams: {
                 limit: number;
                 page: number;
@@ -66,15 +79,15 @@ export default function LocationsPage() {
                 page: page,
                 sortBy: sortBy,
             };
-            
+
             if (searchQuery.trim()) {
                 queryParams.q = searchQuery.trim();
             }
-            
+
             if (selectedCategory) {
                 queryParams.category = selectedCategory;
             }
-            
+
             // Call search API with pagination
             const response = await apiService.getLocations(queryParams);
             setLocations(response.data || []);
@@ -98,8 +111,9 @@ export default function LocationsPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [locations]);
 
-    const handleSearch = (query: string) => {
+    const handleSearch = (query: string, isAI?: boolean) => {
         setSearchQuery(query);
+        setIsAISearch(isAI || false);
         setCurrentPage(1); // Reset to page 1 on new search
     };
 
@@ -110,7 +124,7 @@ export default function LocationsPage() {
         if (selectedCategory) params.set("category", selectedCategory);
         if (sortBy !== "name_asc") params.set("sort", sortBy);
         if (currentPage !== 1) params.set("page", currentPage.toString());
-        
+
         const queryString = params.toString();
         router.push(queryString ? `/locations?${queryString}` : "/locations", { scroll: false });
     }, [searchQuery, selectedCategory, sortBy, currentPage, router]);
@@ -146,7 +160,7 @@ export default function LocationsPage() {
 
                     {/* Search Bar */}
                     <div className="w-full max-w-3xl mx-auto mb-8">
-                        <LocationSearchBar 
+                        <LocationSearchBar
                             value={searchQuery}
                             onSearch={handleSearch}
                             className="w-full"
@@ -160,12 +174,25 @@ export default function LocationsPage() {
                 {/* Results Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4 sm:gap-0">
                     <div>
-                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-                            {searchQuery ? `Kết quả tìm kiếm cho "${searchQuery}"` : "Tất cả địa điểm"}
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
+                            {searchQuery ? (
+                                <>
+                                    {isAISearch && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full">
+                                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                                            </svg>
+                                            AI
+                                        </span>
+                                    )}
+                                    {`Kết quả tìm kiếm cho "${searchQuery}"`}
+                                </>
+                            ) : "Tất cả địa điểm"}
                         </h2>
                         {!loading && !error && (
                             <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">
-                                {filteredLocations.length} địa điểm được tìm thấy
+                                {totalResults} địa điểm được tìm thấy
+                                {isAISearch && " (tìm kiếm bằng AI)"}
                             </p>
                         )}
                     </div>
@@ -176,32 +203,36 @@ export default function LocationsPage() {
                             href={`/locations/map${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ""}`}
                             className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm"
                         >
-                            🗺️ Xem trên bản đồ
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                            </svg>
+                            Xem trên bản đồ
                         </Link>
 
-                        <select 
-                            value={selectedCategory} 
-                            onChange={(e) => setSelectedCategory(e.target.value)}
-                            className="border border-gray-300 rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
-                        >
-                            <option value="">Tất cả danh mục</option>
-                            {categories.map((cat) => (
-                                <option key={cat.id} value={cat.slug}>
-                                    {cat.name}
-                                </option>
-                            ))}
-                        </select>
+                        <CustomDropdown
+                            value={selectedCategory}
+                            onChange={(value) => setSelectedCategory(value)}
+                            placeholder="Tất cả danh mục"
+                            options={[
+                                { value: "", label: "Tất cả danh mục" },
+                                ...categories.map((cat) => ({
+                                    value: cat.slug,
+                                    label: cat.name,
+                                })),
+                            ]}
+                        />
 
-                        <select 
-                            value={sortBy} 
-                            onChange={(e) => setSortBy(e.target.value)}
-                            className="border border-gray-300 rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
-                        >
-                            <option value="name_asc">Tên A-Z</option>
-                            <option value="name_desc">Tên Z-A</option>
-                            <option value="rating">Đánh giá cao nhất</option>
-                            <option value="newest">Mới nhất</option>
-                        </select>
+                        <CustomDropdown
+                            value={sortBy}
+                            onChange={(value) => setSortBy(value)}
+                            placeholder="Sắp xếp"
+                            options={[
+                                { value: "name_asc", label: "Tên A - Z" },
+                                { value: "name_desc", label: "Tên Z - A" },
+                                { value: "rating", label: "Đánh giá cao nhất" },
+                                { value: "newest", label: "Mới nhất" },
+                            ]}
+                        />
                     </div>
                 </div>
 
@@ -259,23 +290,23 @@ export default function LocationsPage() {
                 {!loading && !error && filteredLocations.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
                         {filteredLocations.map((location) => (
-                            <LocationCard key={location.id} location={location}/>
+                            <LocationCard key={location.id} location={location} />
                         ))}
                     </div>
                 )}
 
                 {/* Pagination */}
                 {!loading && !error && filteredLocations.length > 0 && totalPages > 1 && (
-                    <div className="flex justify-center mt-12">
+                    <div className="flex flex-col items-center mt-12">
                         <nav className="flex items-center space-x-2">
-                            <button 
+                            <button
                                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                                 disabled={currentPage === 1}
                                 className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 ← Trước
                             </button>
-                            
+
                             {/* Page numbers */}
                             {Array.from({ length: totalPages }, (_, i) => i + 1)
                                 .filter(page => {
@@ -288,25 +319,24 @@ export default function LocationsPage() {
                                     // Add ellipsis if there's a gap
                                     const prevPage = arr[idx - 1];
                                     const showEllipsis = prevPage && page - prevPage > 1;
-                                    
+
                                     return (
                                         <div key={`page-${page}`} className="flex items-center">
                                             {showEllipsis && <span className="px-2 text-gray-400">...</span>}
                                             <button
                                                 onClick={() => setCurrentPage(page)}
-                                                className={`px-4 py-2 border rounded-lg transition-colors ${
-                                                    currentPage === page
-                                                        ? 'text-white bg-gray-800 border-gray-800 hover:bg-gray-900'
-                                                        : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
-                                                }`}
+                                                className={`px-4 py-2 border rounded-lg transition-colors ${currentPage === page
+                                                    ? 'text-white bg-gray-800 border-gray-800 hover:bg-gray-900'
+                                                    : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+                                                    }`}
                                             >
                                                 {page}
                                             </button>
                                         </div>
                                     );
                                 })}
-                            
-                            <button 
+
+                            <button
                                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                                 disabled={currentPage === totalPages}
                                 className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -314,8 +344,8 @@ export default function LocationsPage() {
                                 Sau →
                             </button>
                         </nav>
-                        <div className="ml-8 text-gray-600">
-                            Trang {currentPage} / {totalPages} ({totalResults} kết quả)
+                        <div className="mt-4 text-gray-600 text-sm text-center">
+                            Hiển thị {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalResults)} - {Math.min(currentPage * ITEMS_PER_PAGE, totalResults)} trong {totalResults} kết quả
                         </div>
                     </div>
                 )}

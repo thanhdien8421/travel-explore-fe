@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
+import { getRatingLabel } from "@/lib/rating-utils";
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -67,8 +68,8 @@ export default function ReviewModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgb(0,0,0,0.1)] bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 animate-fadeInUp relative z-[10000]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 animate-in fade-in zoom-in duration-300 relative z-[10000]">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -102,15 +103,25 @@ export default function ReviewModal({
 
         {/* Error Message */}
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800 text-sm">{error}</p>
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
           </div>
         )}
 
         {/* Not Authenticated Message */}
         {!isAuthenticated && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-800 text-sm">Vui lòng đăng nhập để viết đánh giá</p>
+          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-amber-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <p className="text-amber-800 text-sm">Vui lòng đăng nhập để viết đánh giá</p>
+            </div>
           </div>
         )}
 
@@ -146,11 +157,7 @@ export default function ReviewModal({
               ))}
             </div>
             <p className="text-sm text-gray-500 mt-2">
-              {rating === 1 && "Rất tệ"}
-              {rating === 2 && "Tệ"}
-              {rating === 3 && "Bình thường"}
-              {rating === 4 && "Tốt"}
-              {rating === 5 && "Tuyệt vời"}
+              {getRatingLabel(rating)}
             </p>
           </div>
 
@@ -165,10 +172,10 @@ export default function ReviewModal({
               onChange={(e) => setComment(e.target.value)}
               placeholder="Chia sẻ trải nghiệm của bạn tại địa điểm này..."
               rows={5}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all resize-none"
               disabled={loading || !isAuthenticated}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 mt-2">
               {comment.length}/500 ký tự
             </p>
           </div>
@@ -177,11 +184,11 @@ export default function ReviewModal({
           <button
             type="submit"
             disabled={loading || !isAuthenticated || !comment.trim()}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-3 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                 <span>Đang gửi...</span>
               </>
             ) : (
@@ -191,8 +198,13 @@ export default function ReviewModal({
         </form>
 
         {/* Info */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-          <p>Đánh giá của bạn sẽ giúp những người khác tìm thấy những địa điểm tốt nhất!</p>
+        <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600">
+          <div className="flex items-start gap-2">
+            <svg className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p>Đánh giá của bạn sẽ giúp những người khác tìm thấy những địa điểm tốt nhất!</p>
+          </div>
         </div>
       </div>
     </div>

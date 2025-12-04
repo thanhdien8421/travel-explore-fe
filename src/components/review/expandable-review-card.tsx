@@ -38,7 +38,7 @@ export default function ExpandableReviewCard({ review }: ExpandableReviewCardPro
         <div className="flex-1">
           {/* User info */}
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-sm">
               {review.user?.full_name?.charAt(0).toUpperCase() || "U"}
             </div>
             <div>

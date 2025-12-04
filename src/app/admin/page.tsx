@@ -4,9 +4,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import NavBar from "@/components/nav-bar";
 import AdminSidebar from "@/components/admin-sidebar";
 import LoginModal from "@/components/auth/login-modal";
 import { AdminSkeleton } from "@/components/skeleton/admin-skeleton";
+import { CustomDropdown } from "@/components/ui/custom-dropdown";
 import { apiService, AdminPlacesResponse, AdminStats } from "@/lib/api";
 import { getImageUrl } from "@/lib/image-utils";
 
@@ -25,6 +27,7 @@ export default function AdminPage() {
   const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [hardDeleteConfirm, setHardDeleteConfirm] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -38,6 +41,7 @@ export default function AdminPage() {
   const [sortBy, setSortBy] = useState<"name" | "createdAt" | "featured">("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showDeleted, setShowDeleted] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   useEffect(() => {
     // Get token from localStorage and validate
@@ -82,6 +86,7 @@ export default function AdminPage() {
       // Fetch table data with pagination (fast)
       const result = await apiService.getAdminPlaces({
         search: searchQuery || undefined,
+        status: statusFilter !== "ALL" ? statusFilter : undefined,
         sortBy,
         sortOrder,
         page: currentPage,
@@ -116,7 +121,7 @@ export default function AdminPage() {
     if (isAuthenticated && token) {
       fetchData();
     }
-  }, [isAuthenticated, token, searchQuery, sortBy, sortOrder, currentPage, itemsPerPage]);
+  }, [isAuthenticated, token, searchQuery, sortBy, sortOrder, currentPage, itemsPerPage, statusFilter]);
 
   const handleLoginSuccess = () => {
     setShowLoginModal(false);
@@ -173,6 +178,26 @@ export default function AdminPage() {
       console.error("Error restoring location:", err);
     } finally {
       setRestoringId(null);
+    }
+  };
+
+  const handleHardDelete = async (placeId: string) => {
+    if (!token) {
+      setError("Vui lòng đăng nhập để xóa vĩnh viễn địa điểm.");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await apiService.deletePlaceWithOption(placeId, token, true);
+      setHardDeleteConfirm(null);
+      // Refresh the list after deletion
+      fetchData();
+    } catch (err) {
+      setError("Không thể xóa vĩnh viễn địa điểm. Vui lòng thử lại sau.");
+      console.error("Error hard deleting location:", err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -238,12 +263,13 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <AdminSidebar />
-      
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
+    <div className="h-screen flex flex-col overflow-hidden">
+      <NavBar />
+      <div className="flex flex-1 overflow-hidden">
+        <AdminSidebar />
+        
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto bg-gray-50" style={{ scrollbarGutter: 'stable' }}>
           <div className="max-w-7xl mx-auto py-8 px-4 lg:px-8">
             {/* Header */}
             <div className="mb-8">
@@ -253,7 +279,7 @@ export default function AdminPage() {
                     className="text-3xl md:text-4xl font-bold text-gray-900 mb-2"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
-                    Tổng quan
+                    Xin chào, Admin!
                   </h1>
                   <p className="text-gray-600">
                     Quản lý tất cả địa điểm du lịch trong hệ thống
@@ -339,7 +365,7 @@ export default function AdminPage() {
                 </h2>
                 
                 {/* Search and Filter Controls */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Tìm kiếm
@@ -355,72 +381,96 @@ export default function AdminPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-800"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Trạng thái
+                    </label>
+                    <CustomDropdown
+                      value={statusFilter}
+                      onChange={(value) => {
+                        setStatusFilter(value);
+                        setCurrentPage(1);
+                      }}
+                      options={[
+                        { value: "ALL", label: "Tất cả" },
+                        { value: "APPROVED", label: "Đã duyệt" },
+                        { value: "PENDING", label: "Chờ duyệt" },
+                        { value: "REJECTED", label: "Từ chối" },
+                      ]}
+                      className="w-full"
+                    />
+                  </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Sắp xếp theo
                     </label>
-                    <select
+                    <CustomDropdown
                       value={sortBy}
-                      onChange={(e) => {
-                        setSortBy(e.target.value as "name" | "createdAt" | "featured");
+                      onChange={(value) => {
+                        setSortBy(value as "name" | "createdAt" | "featured");
                         setCurrentPage(1);
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-800"
-                    >
-                      <option value="createdAt">Ngày tạo</option>
-                      <option value="name">Tên A-Z</option>
-                      <option value="featured">Nổi bật</option>
-                    </select>
+                      options={[
+                        { value: "createdAt", label: "Ngày tạo" },
+                        { value: "name", label: "Tên A - Z" },
+                        { value: "featured", label: "Nổi bật" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Thứ tự
                     </label>
-                    <select
+                    <CustomDropdown
                       value={sortOrder}
-                      onChange={(e) => {
-                        setSortOrder(e.target.value as "asc" | "desc");
+                      onChange={(value) => {
+                        setSortOrder(value as "asc" | "desc");
                         setCurrentPage(1);
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-800"
-                    >
-                      <option value="desc">Mới nhất trước</option>
-                      <option value="asc">Cũ nhất trước</option>
-                    </select>
+                      options={[
+                        { value: "desc", label: "Mới nhất trước" },
+                        { value: "asc", label: "Cũ nhất trước" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Hiển thị
                     </label>
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(parseInt(e.target.value));
+                    <CustomDropdown
+                      value={String(itemsPerPage)}
+                      onChange={(value) => {
+                        setItemsPerPage(parseInt(value));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-800"
-                    >
-                      <option value={5}>5 mục</option>
-                      <option value={10}>10 mục</option>
-                      <option value={20}>20 mục</option>
-                      <option value={50}>50 mục</option>
-                    </select>
+                      options={[
+                        { value: "5", label: "5 mục" },
+                        { value: "10", label: "10 mục" },
+                        { value: "20", label: "20 mục" },
+                        { value: "50", label: "50 mục" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                   
                   <div className="flex items-end">
                     <button
                       onClick={() => {
                         setSearchQuery("");
+                        setStatusFilter("ALL");
                         setSortBy("createdAt");
                         setSortOrder("desc");
                         setCurrentPage(1);
                         setItemsPerPage(10);
                         setShowDeleted(false);
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-white bg-gray-500 hover:bg-gray-600 transition-colors"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-white bg-gray-800 hover:bg-gray-900 transition-colors"
                     >
                       Đặt lại
                     </button>
@@ -539,21 +589,33 @@ export default function AdminPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4 overflow-hidden">
-                            <div className="flex items-center min-w-0 gap-2">
-                              {location.isFeatured ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 truncate">
-                                  <svg className="w-3 h-3 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <div className="flex items-center min-w-0 gap-2 flex-wrap">
+                              {/* Status badge */}
+                              {location.status === "PENDING" && (
+                                <span className="inline-flex items-center justify-center min-w-[120px] px-3 py-1.5 rounded-full text-sm font-bold bg-orange-100 text-orange-800">
+                                  Chờ duyệt
+                                </span>
+                              )}
+                              {location.status === "REJECTED" && (
+                                <span className="inline-flex items-center justify-center min-w-[120px] px-3 py-1.5 rounded-full text-sm font-bold bg-red-100 text-red-800">
+                                  Từ chối
+                                </span>
+                              )}
+                              {location.status === "APPROVED" && location.isFeatured && (
+                                <span className="inline-flex items-center justify-center min-w-[120px] px-3 py-1.5 rounded-full text-sm font-bold bg-yellow-100 text-yellow-800">
+                                  <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                   </svg>
                                   Nổi bật
                                 </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                  Thường
+                              )}
+                              {location.status === "APPROVED" && !location.isFeatured && (
+                                <span className="inline-flex items-center justify-center min-w-[120px] px-3 py-1.5 rounded-full text-sm font-bold bg-green-100 text-green-800">
+                                  Đã duyệt
                                 </span>
                               )}
                               {!location.isActive && (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 truncate">
+                                <span className="inline-flex items-center justify-center min-w-[120px] px-3 py-1.5 rounded-full text-sm font-bold bg-gray-500 text-white">
                                   Đã xóa
                                 </span>
                               )}
@@ -563,31 +625,55 @@ export default function AdminPage() {
                             <div className="flex justify-end gap-2 min-w-0">
                               <Link
                                 href={`/locations/${location.slug}`}
-                                className="text-blue-600 hover:text-blue-900 px-3 py-1 rounded transition-colors flex-shrink-0"
+                                title="Xem"
+                                className="w-9 h-9 flex items-center justify-center border border-blue-500 text-blue-500 bg-white rounded-lg hover:bg-blue-50 transition-colors flex-shrink-0"
                               >
-                                Xem
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
                               </Link>
                               <button
                                 onClick={() => router.push(`/admin/locations/${location.id}/edit`)}
-                                className="text-green-600 hover:text-green-900 px-3 py-1 rounded transition-colors flex-shrink-0"
+                                title="Sửa"
+                                className="w-9 h-9 flex items-center justify-center border border-amber-500 text-amber-500 bg-white rounded-lg hover:bg-amber-50 transition-colors flex-shrink-0"
                               >
-                                Sửa
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
                               </button>
                               {location.isActive ? (
                                 <button
                                   onClick={() => setDeleteConfirm(location.id)}
-                                  className="text-red-600 hover:text-red-900 px-3 py-1 rounded transition-colors flex-shrink-0"
+                                  title="Xóa"
+                                  className="w-9 h-9 flex items-center justify-center border border-red-500 text-red-500 bg-white rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
                                 >
-                                  Xóa
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
                                 </button>
                               ) : (
-                                <button
-                                  onClick={() => handleRestore(location.id)}
-                                  disabled={restoringId === location.id}
-                                  className="text-green-600 hover:text-green-900 px-3 py-1 rounded transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {restoringId === location.id ? "Đang khôi phục..." : "Khôi phục"}
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => handleRestore(location.id)}
+                                    disabled={restoringId === location.id}
+                                    title="Khôi phục"
+                                    className="w-9 h-9 flex items-center justify-center border border-green-500 text-green-500 bg-white rounded-lg hover:bg-green-50 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => setHardDeleteConfirm(location.id)}
+                                    title="Xóa vĩnh viễn"
+                                    className="w-9 h-9 flex items-center justify-center bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex-shrink-0"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -629,33 +715,104 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
 
         {/* Delete Confirmation Modal */}
         {deleteConfirm && (
-          <div className="fixed inset-0 bg-[rgba(0,0,0,0.3)] flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
+              {/* Icon */}
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              
+              {/* Header */}
+              <h3 
+                className="text-2xl font-bold text-gray-900 mb-3 text-center"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
                 Xác nhận xóa
               </h3>
-              <p className="text-gray-600 mb-6">
-                Bạn có chắc chắn muốn xóa địa điểm này? Hành động này không thể hoàn tác.
+              <p className="text-gray-600 mb-8 text-center">
+                Bạn có chắc chắn muốn xóa địa điểm này? Địa điểm sẽ bị ẩn và có thể khôi phục sau.
               </p>
-              <div className="flex gap-3">
+              
+              {/* Buttons */}
+              <div className="flex gap-4">
                 <button
                   onClick={() => setDeleteConfirm(null)}
                   disabled={isDeleting}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="flex-1 px-6 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 disabled:opacity-50"
                 >
                   Hủy
                 </button>
                 <button
                   onClick={() => handleDelete(deleteConfirm)}
                   disabled={isDeleting}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
+                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {isDeleting ? "Đang xóa..." : "Xóa"}
+                  {isDeleting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      <span>Đang xóa...</span>
+                    </>
+                  ) : "Xóa"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Hard Delete Confirmation Modal */}
+        {hardDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
+              {/* Icon */}
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              
+              {/* Header */}
+              <h3 
+                className="text-2xl font-bold text-gray-900 mb-3 text-center"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                Xóa vĩnh viễn
+              </h3>
+              <p className="text-gray-600 mb-4 text-center">
+                Bạn có chắc chắn muốn <span className="font-semibold text-red-600">xóa vĩnh viễn</span> địa điểm này?
+              </p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+                <p className="text-sm text-red-700 text-center font-medium">
+                  ⚠️ Hành động này không thể hoàn tác. Dữ liệu sẽ bị xóa hoàn toàn khỏi hệ thống.
+                </p>
+              </div>
+              
+              {/* Buttons */}
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setHardDeleteConfirm(null)}
+                  disabled={isDeleting}
+                  className="flex-1 px-6 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={() => handleHardDelete(hardDeleteConfirm)}
+                  disabled={isDeleting}
+                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      <span>Đang xóa...</span>
+                    </>
+                  ) : "Xóa vĩnh viễn"}
                 </button>
               </div>
             </div>

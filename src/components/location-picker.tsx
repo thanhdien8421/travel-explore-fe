@@ -226,7 +226,10 @@ export default function LocationPicker({
         {isLoading && (
           <div className="absolute inset-0 bg-white rounded-lg flex items-center justify-center z-10 border border-gray-300">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
+              <div className="relative mx-auto mb-3 w-10 h-10">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-300"></div>
+                <div className="animate-spin absolute top-0 left-0 w-10 h-10 rounded-full border-4 border-transparent border-t-gray-600 border-r-gray-600"></div>
+              </div>
               <p className="text-gray-600 text-sm font-medium">Đang tải bản đồ...</p>
             </div>
           </div>

@@ -66,12 +66,18 @@ export default function HomePage() {
           {/* Search Button - Opens overlay */}
           <button
             onClick={() => setIsSearchOpen(true)}
-            className="w-full max-w-3xl mx-auto flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-200 rounded-full hover:border-blue-500 hover:shadow-lg transition-all duration-300 text-left"
+            className="w-full max-w-3xl mx-auto flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-200 rounded-full hover:border-blue-500 hover:shadow-lg transition-all duration-300 text-left group"
           >
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <span className="text-gray-500 text-lg">Tìm kiếm địa điểm, điểm tham quan hoặc trải nghiệm...</span>
+            <span className="text-gray-500 text-lg flex-1">Tìm kiếm địa điểm, điểm tham quan hoặc trải nghiệm...</span>
+            {/* <span className="flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full group-hover:bg-purple-200 transition-colors">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+              AI
+            </span> */}
           </button>
         </div>
       </section>
@@ -93,9 +99,9 @@ export default function HomePage() {
         {/* Loading State */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
-              <div className="animate-ping absolute top-0 left-0 w-16 h-16 rounded-full bg-blue-600 opacity-20"></div>
+            <div className="relative w-16 h-16">
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-300"></div>
+              <div className="animate-spin absolute top-0 left-0 w-16 h-16 rounded-full border-4 border-transparent border-t-gray-600 border-r-gray-600"></div>
             </div>
             <p className="text-gray-600 mt-4 text-lg">Đang tải địa điểm...</p>
           </div>

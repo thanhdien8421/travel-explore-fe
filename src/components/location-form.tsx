@@ -358,12 +358,29 @@ export default function LocationForm({ initialData, onSuccess, isEditing = false
       }
 
       let createdPlace: PlaceDetail;
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
       if (isEditing && initialData?.id) {
-        // Update place
+        // Update place (admin path)
         createdPlace = await apiService.updatePlace(initialData.id, placeData, token);
       } else {
-        // Create place
-        createdPlace = await apiService.createPlace(placeData, token);
+        // Create place - use user submission endpoint for new places
+        const submitResponse = await fetch(`${API_URL}/api/places/submit`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(placeData),
+        });
+
+        if (!submitResponse.ok) {
+          const errorData = await submitResponse.json();
+          throw new Error(errorData.message || 'Lỗi khi gửi địa điểm');
+        }
+
+        const responseData = await submitResponse.json();
+        createdPlace = responseData.place;
       }
 
       // Handle image operations (delete then upload then update cover)
@@ -414,20 +431,30 @@ export default function LocationForm({ initialData, onSuccess, isEditing = false
     <>
       {/* Success Modal */}
       {success && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.3)] flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-in fade-in zoom-in duration-300">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-3">Thành công</h3>
-            <p className="text-gray-600 mb-2">
-              {isEditing ? "Địa điểm đã được cập nhật." : "Địa điểm đã được thêm vào hệ thống."}
-            </p>
-            <p className="text-sm text-gray-500">Chuyển đến trang chi tiết</p>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">Thành công!</h3>
+            {isEditing ? (
+              <>
+                <p className="text-gray-600 mb-2">Địa điểm đã được cập nhật.</p>
+                <p className="text-sm text-gray-500">Chuyển đến trang chi tiết</p>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-600 mb-2">Địa điểm của bạn đã được gửi thành công!</p>
+                <p className="text-sm text-gray-500">Đang chờ duyệt từ đội ngũ của chúng tôi...</p>
+              </>
+            )}
             <div className="mt-6">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+              <div className="relative mx-auto w-8 h-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-gray-300"></div>
+                <div className="animate-spin absolute top-0 left-0 w-8 h-8 rounded-full border-4 border-transparent border-t-green-600 border-r-green-600"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -736,7 +763,10 @@ export default function LocationForm({ initialData, onSuccess, isEditing = false
                   {categoriesLoading ? (
                     <div className="text-center py-4">
                       <div className="inline-block">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700"></div>
+                        <div className="relative w-6 h-6">
+                          <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300"></div>
+                          <div className="animate-spin absolute top-0 left-0 w-6 h-6 rounded-full border-2 border-transparent border-t-gray-700 border-r-gray-700"></div>
+                        </div>
                       </div>
                     </div>
                   ) : categories.length > 0 ? (

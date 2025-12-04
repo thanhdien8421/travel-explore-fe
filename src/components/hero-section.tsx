@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { apiService, PlaceSummary } from "@/lib/api";
 import { getImageUrl } from "@/lib/image-utils";
+import { getCategoryColorClass, CategoryColorClass } from "@/lib/category-colors";
+import { formatRating } from "@/lib/rating-utils";
 
 export default function HeroSection() {
     const [featuredPlaces, setFeaturedPlaces] = useState<PlaceSummary[]>([]);
@@ -177,7 +179,7 @@ export default function HeroSection() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
                     {/* Card overlays the image, fills right column */}
                     <div className="absolute inset-0 flex items-end">
-                        <div className="bg-[rgba(0,0,0,0.5)] shadow-xl p-3 sm:p-4 md:p-6 lg:p-8 w-full mb-0">
+                        <div className="bg-black/50 shadow-xl p-3 sm:p-4 md:p-6 lg:p-8 w-full mb-0">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 mb-2">
                                 <h3
                                     className="text-lg sm:text-xl md:text-2xl font-bold text-gray-50 line-clamp-2"
@@ -186,29 +188,31 @@ export default function HeroSection() {
                                     {currentPlace.name}
                                 </h3>
                                 {/* Rating badge */}
-                                {currentPlace.average_rating !== undefined && currentPlace.average_rating !== null && currentPlace.average_rating > 0 ? (
-                                  <div className="flex items-center gap-1 bg-[rgba(255,255,0,0.3)] backdrop-blur-sm text-yellow-500 px-2 sm:px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0">
+                                  <div className="flex items-center gap-1 bg-yellow-500/30 backdrop-blur-sm text-yellow-500 px-2 sm:px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0">
                                     <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20">
                                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                     </svg>
-                                    {currentPlace.average_rating.toFixed(1)}
+                                    {formatRating(currentPlace.average_rating)}
                                   </div>
-                                ) : (
-                                  <div className="text-xs text-gray-300 flex-shrink-0">
-                                    Chưa có đánh giá
-                                  </div>
-                                )}
                             </div>
                             <p className="text-gray-50 mb-2 sm:mb-3 text-xs sm:text-sm md:text-base line-clamp-2">{currentPlace.description || "Khám phá địa điểm tuyệt vời này"}</p>
                             <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-gray-50 mb-2 sm:mb-4">
-                                <span>{currentPlace.district || "TP. Hồ Chí Minh"}</span>
-                                <span className="px-2 py-1 bg-blue-600 text-white rounded-full text-xs">Điểm tham quan</span>
+                                <span>{currentPlace.ward || "TP. Hồ Chí Minh"}</span>
+                                {currentPlace.categories && currentPlace.categories.length > 0 ? (
+                                    currentPlace.categories.slice(0, 3).map((category) => (
+                                        <span key={category.id} className={`px-2 py-1 ${getCategoryColorClass(category.slug)} text-white rounded-full text-xs`}>
+                                            {category.name}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className={`px-2 py-1 ${CategoryColorClass.DEFAULT} text-white rounded-full text-xs`}>Chưa phân loại</span>
+                                )}
                             </div>
                             
                             {/* CTA Button to detail page */}
                             <Link
                                 href={`/locations/${currentPlace.slug}`}
-                                className="inline-flex items-center gap-2 bg-[rgba(255,255,255,0.1)] backdrop-blur-sm text-white px-3 sm:px-4 py-2 rounded-full hover:bg-opacity-30 transition-all duration-300 font-medium text-xs sm:text-sm"
+                                className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-3 sm:px-4 py-2 rounded-full hover:bg-opacity-30 transition-all duration-300 font-medium text-xs sm:text-sm"
                             >
                                 <span>Xem chi tiết</span>
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

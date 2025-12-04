@@ -30,6 +30,12 @@ body {
 
 /* Custom styles for enhanced UI */
 
+/* Hide auto show password of Edge browser */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
 /* Line clamp utilities */
 .line-clamp-2 {
   overflow: hidden;
@@ -177,6 +183,27 @@ iframe {
 
 .leaflet-control {
   z-index: 2 !important;
+}
+
+/* Custom popup styling for map */
+.leaflet-popup-content-wrapper {
+  padding: 0 !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+}
+
+.leaflet-popup-tip {
+  background: white !important;
+}
+
+.custom-popup .leaflet-popup-content-wrapper {
+  background: white;
 }
 
 /* Ensure modals and backdrops work properly */

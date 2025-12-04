@@ -197,7 +197,7 @@ export default function SupabaseImageUpload({
             className="w-full h-92 object-cover rounded-lg border"
           />
           {isUploading && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg gap-2">
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg gap-2">
               <div className="relative w-8 h-8">
                 <div className="absolute inset-0 rounded-full border-2 border-gray-300"></div>
                 <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-white border-r-white animate-spin"></div>
@@ -239,7 +239,10 @@ export default function SupabaseImageUpload({
           />
           
           {isUploading ? (
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600 mx-auto mb-2"></div>
+            <div className="relative w-8 h-8 mx-auto mb-2">
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-gray-300"></div>
+              <div className="animate-spin absolute top-0 left-0 w-8 h-8 rounded-full border-4 border-transparent border-t-gray-600 border-r-gray-600"></div>
+            </div>
           ) : (
             <MdPhotoCamera className="text-4xl text-gray-400 mx-auto mb-2" />
           )}
