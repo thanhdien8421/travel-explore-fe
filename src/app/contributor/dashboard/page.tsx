@@ -6,6 +6,7 @@ import Link from "next/link";
 import NavBar from "@/components/nav-bar";
 import ContributorSidebar from "@/components/contributor-sidebar";
 import { apiService } from "@/lib/api";
+import { useAuth } from "@/contexts/auth-context";
 
 interface ContributorStats {
   totalPlaces: number;
@@ -21,7 +22,7 @@ export default function ContributorDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>("");
+  const { user } = useAuth();
 
   useEffect(() => {
     const savedToken = localStorage.getItem("auth_token");
@@ -37,7 +38,6 @@ export default function ContributorDashboardPage() {
         router.push("/");
         return;
       }
-      setUserName(payload.fullName || payload.email || "Contributor");
     } catch {
       router.push("/");
       return;
@@ -79,16 +79,16 @@ export default function ContributorDashboardPage() {
       <div className="flex flex-1 overflow-hidden">
         <ContributorSidebar />
 
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6 lg:mb-8">
             <h1 
-              className="text-3xl font-bold text-gray-900 mb-2"
+              className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
-              Xin chào, {userName}!
+              Xin chào, {user ? user.fullName.split(" ").at(-1) : "Cộng tác viên"}! 
             </h1>
-            <p className="text-gray-600">
+            <p className="text-sm sm:text-base text-gray-600">
               Cảm ơn bạn đã đóng góp cho cộng đồng du lịch Việt Nam
             </p>
           </div>

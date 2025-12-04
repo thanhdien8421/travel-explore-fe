@@ -11,6 +11,7 @@ import { AdminSkeleton } from "@/components/skeleton/admin-skeleton";
 import { CustomDropdown } from "@/components/ui/custom-dropdown";
 import { apiService, AdminPlacesResponse, AdminStats } from "@/lib/api";
 import { getImageUrl } from "@/lib/image-utils";
+import { useAuth } from "@/contexts/auth-context";
 
 interface Statistics {
   totalLocations: number;
@@ -33,6 +34,7 @@ export default function AdminPage() {
   const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const { user } = useAuth();
   
   // Filter and pagination state
   const [searchQuery, setSearchQuery] = useState("");
@@ -217,23 +219,25 @@ export default function AdminPage() {
   }
 
   // Show login modal if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <>
-        <LoginModal 
-          isOpen={showLoginModal} 
-          onClose={() => {}} 
-          onSwitchToRegister={() => {}}
-          isAdminPage={true}
-        />
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
-          <div className="text-center">
-            <p className="text-gray-600">Vui lòng đăng nhập để truy cập trang quản trị...</p>
-          </div>
-        </div>
-      </>
-    );
-  }
+  // if (!isAuthenticated) {
+  //   return (
+  //     <>
+  //       <LoginModal 
+  //         isOpen={showLoginModal} 
+  //         onClose={() => {}} 
+  //         onSwitchToRegister={() => {}}
+  //         isAdminPage={true}
+  //       />
+  //       <div className="flex items-center justify-center min-h-screen bg-gray-50">
+  //         <div className="text-center">
+  //           <p className="text-gray-600">Vui lòng đăng nhập để truy cập trang quản trị...</p>
+  //         </div>
+  //       </div>
+  //     </>
+  //   );
+  // }
+
+  if (!isAuthenticated) router.push("/");
 
   // Show loading state for data fetch
   if (loading) {
@@ -270,30 +274,31 @@ export default function AdminPage() {
         
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-gray-50" style={{ scrollbarGutter: 'stable' }}>
-          <div className="max-w-7xl mx-auto py-8 px-4 lg:px-8">
+          <div className="max-w-7xl mx-auto py-4 sm:py-6 lg:py-8 px-4 lg:px-8">
             {/* Header */}
-            <div className="mb-8">
+            <div className="mb-6 lg:mb-8">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
                   <h1 
-                    className="text-3xl md:text-4xl font-bold text-gray-900 mb-2"
+                    className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
-                    Xin chào, Admin!
+                    Xin chào, {user?.fullName? user.fullName.split(" ").at(-1) : "Quản trị viên"}!
                   </h1>
-                  <p className="text-gray-600">
+                  <p className="text-sm sm:text-base text-gray-600">
                     Quản lý tất cả địa điểm du lịch trong hệ thống
                   </p>
                 </div>
                 <div className="flex gap-3">
                   <Link
                     href="/admin/locations/add"
-                    className="bg-gray-900 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center gap-2"
+                    className="bg-gray-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center gap-2 text-sm sm:text-base"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Thêm địa điểm
+                    <span className="hidden sm:inline">Thêm địa điểm</span>
+                    <span className="sm:hidden">Thêm</span>
                   </Link>
                 </div>
               </div>
@@ -585,7 +590,7 @@ export default function AdminPage() {
                           </td>
                           <td className="px-6 py-4 overflow-hidden">
                             <div className="text-sm text-gray-900 truncate">
-                              {location.district || "Chưa cập nhật"}
+                              {location.ward || location.district || "Chưa cập nhật"}
                             </div>
                           </td>
                           <td className="px-6 py-4 overflow-hidden">

@@ -73,9 +73,9 @@ export default function PlanDetailPage() {
       setPlan(
         plan
           ? {
-              ...plan,
-              items: plan.items.filter((item) => item.place.id !== placeId),
-            }
+            ...plan,
+            items: plan.items.filter((item) => item.place.id !== placeId),
+          }
           : null
       );
       if (selectedPlaceId === placeId) {
@@ -182,7 +182,7 @@ export default function PlanDetailPage() {
             {!sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="absolute top-4 left-4 z-50 bg-white text-gray-800 p-2 rounded-lg hover:bg-gray-100 transition-colors shadow-lg"
+                className="absolute top-4 left-4 z-[1000] bg-white text-gray-800 p-2 rounded-lg hover:bg-gray-100 transition-colors shadow-lg"
                 aria-label="Open sidebar"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,9 +193,8 @@ export default function PlanDetailPage() {
 
             {/* Floating Sidebar */}
             <div
-              className={`absolute top-0 left-0 bottom-0 w-80 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ease-in-out z-30 ${
-                sidebarOpen ? "translate-x-0" : "-translate-x-full"
-              }`}
+              className={`absolute top-0 left-0 bottom-0 w-full sm:w-72 md:w-80 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ease-in-out z-[1000] ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+                }`}
               style={{
                 boxShadow: sidebarOpen ? "4px 0 16px rgba(0, 0, 0, 0.15)" : "none",
               }}
@@ -207,7 +206,7 @@ export default function PlanDetailPage() {
                 </h3>
                 <button
                   onClick={() => setSidebarOpen(false)}
-                  className="text-gray-600 hover:text-gray-800 transition-colors p-1"
+                  className="text-gray-600 hover:text-gray-800 transition-colors p-2 hover:bg-gray-100 rounded-lg"
                   aria-label="Close sidebar"
                   title="Thu gọn"
                 >
@@ -224,11 +223,10 @@ export default function PlanDetailPage() {
                     key={item.place.id}
                     id={`plan-item-${item.place.id}`}
                     onClick={() => setSelectedPlaceId(item.place.id)}
-                    className={`p-3 rounded-lg cursor-pointer transition-all ${
-                      selectedPlaceId === item.place.id
+                    className={`p-3 rounded-lg cursor-pointer transition-all ${selectedPlaceId === item.place.id
                         ? "bg-blue-50 border-2 border-blue-500 shadow-sm"
                         : "bg-white border border-gray-200 hover:border-gray-300"
-                    }`}
+                      }`}
                   >
                     <div className="flex gap-2">
                       <img
@@ -278,9 +276,9 @@ export default function PlanDetailPage() {
           <NavBar />
           <div className="flex flex-1 overflow-hidden">
             <UserSidebar />
-            <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+            <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
               {/* Header Area */}
-              <div className="flex items-center justify-between mb-6 flex-shrink-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 flex-shrink-0 gap-4">
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => router.push("/user/plans")}
@@ -292,8 +290,8 @@ export default function PlanDetailPage() {
                     </svg>
                   </button>
                   <div>
-                    <h1 
-                      className="text-2xl font-bold text-gray-900 leading-tight"
+                    <h1
+                      className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight"
                       style={{ fontFamily: "'Playfair Display', serif" }}
                     >
                       {plan.name}
@@ -304,29 +302,29 @@ export default function PlanDetailPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   {plan.items.length > 0 && (
                     <button
                       onClick={() => {
                         setIsFullscreenMap(true);
                         setSidebarOpen(true);
                       }}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm"
+                      className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                       </svg>
-                      Toàn màn hình
+                      <span className="hidden sm:inline">Toàn màn hình</span>
                     </button>
                   )}
                   <button
                     onClick={handleDeletePlan}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-red-200 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors shadow-sm"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white border border-red-200 rounded-lg text-xs sm:text-sm font-medium text-red-600 hover:bg-red-50 transition-colors shadow-sm"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    Xóa
+                    <span className="hidden sm:inline">Xóa</span>
                   </button>
                 </div>
               </div>
@@ -350,9 +348,9 @@ export default function PlanDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" style={{ height: "calc(100vh - 250px)" }}>
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6" style={{ height: "calc(100vh - 250px)" }}>
                     {/* Left: Items List */}
-                    <div className="lg:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
+                    <div className="lg:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-64 sm:h-80 lg:h-full">
                       <div className="border-b border-gray-200 p-4 bg-white flex items-center justify-between">
                         <h2 className="font-semibold text-gray-900">Danh sách địa điểm</h2>
                         <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{plan.items.length}</span>
@@ -366,18 +364,16 @@ export default function PlanDetailPage() {
                             key={item.place.id}
                             id={`plan-item-${item.place.id}`}
                             onClick={() => setSelectedPlaceId(item.place.id)}
-                            className={`p-3 rounded-lg cursor-pointer transition-all border ${
-                              selectedPlaceId === item.place.id
+                            className={`p-3 rounded-lg cursor-pointer transition-all border ${selectedPlaceId === item.place.id
                                 ? "bg-blue-50 border-blue-500 shadow-sm"
                                 : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
-                            }`}
+                              }`}
                           >
                             <div className="flex gap-3 items-center">
-                              <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold flex-shrink-0 ${
-                                selectedPlaceId === item.place.id 
-                                  ? "bg-blue-500 text-white" 
+                              <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold flex-shrink-0 ${selectedPlaceId === item.place.id
+                                  ? "bg-blue-500 text-white"
                                   : "bg-gray-100 text-gray-500"
-                              }`}>
+                                }`}>
                                 {index + 1}
                               </div>
                               <img
@@ -421,7 +417,7 @@ export default function PlanDetailPage() {
                     </div>
 
                     {/* Right: Map */}
-                    <div className="lg:col-span-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-full relative">
+                    <div className="lg:col-span-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-64 sm:h-80 lg:h-full relative">
                       <PlanMap
                         items={plan.items}
                         selectedPlaceId={selectedPlaceId}
@@ -438,8 +434,8 @@ export default function PlanDetailPage() {
                         className="absolute bottom-4 right-4 bg-white text-gray-600 hover:text-gray-900 p-2 rounded-lg shadow-lg hover:shadow-xl transition-all z-10"
                         title="Xem toàn màn hình"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6v4m12-4h4v4M6 18h4v-4m12 4h-4v-4" />
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
                     </div>

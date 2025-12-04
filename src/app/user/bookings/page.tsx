@@ -96,11 +96,11 @@ export default function UserBookingsPage() {
       <NavBar />
       <div className="flex flex-1 overflow-hidden">
         <UserSidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
           <div className="max-w-4xl">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>Đặt chỗ của tôi</h1>
-            <p className="text-gray-600 mt-1">Quản lý các lượt đặt chỗ tại địa điểm</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>Đặt chỗ của tôi</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Quản lý các lượt đặt chỗ tại địa điểm</p>
           </div>
 
           {error && (

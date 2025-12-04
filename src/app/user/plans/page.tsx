@@ -102,29 +102,30 @@ export default function UserPlansPage() {
       <NavBar />
       <div className="flex flex-1 overflow-hidden">
         <UserSidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 lg:mb-8">
             <div>
               <h1 
-                className="text-2xl font-bold text-gray-900"
+                className="text-xl sm:text-2xl font-bold text-gray-900"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
                 Kế hoạch du lịch
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-sm sm:text-base text-gray-600 mt-1">
                 Tạo và quản lý các chuyến đi của bạn
               </p>
             </div>
             {!isCreating && (
               <button
                 onClick={() => setIsCreating(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-sm sm:text-base"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Tạo kế hoạch mới
+                <span className="hidden sm:inline">Tạo kế hoạch mới</span>
+                <span className="sm:hidden">Tạo mới</span>
               </button>
             )}
           </div>

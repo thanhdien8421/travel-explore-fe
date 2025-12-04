@@ -223,28 +223,29 @@ export default function AdminUsersPage() {
       <div className="flex flex-1 overflow-hidden">
         <AdminSidebar />
         <main className="flex-1 overflow-y-auto bg-[rgb(252,252,252)]" style={{ scrollbarGutter: 'stable' }}>
-          <div className="max-w-7xl mx-auto py-8 px-4 lg:px-8">
+          <div className="max-w-7xl mx-auto py-4 sm:py-6 lg:py-8 px-4 lg:px-8">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 lg:mb-8">
               <div>
                 <h1 
-                  className="text-3xl md:text-4xl font-bold text-gray-900 mb-2"
+                  className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2"
                   style={{ fontFamily: "'Playfair Display', serif" }}
                 >
                   Quản lý người dùng
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-sm sm:text-base text-gray-600">
                   Quản lý tài khoản và phân quyền người dùng
                 </p>
               </div>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="px-6 py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center gap-2"
+                className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center gap-2 text-sm sm:text-base"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Tạo tài khoản
+                <span className="hidden sm:inline">Tạo tài khoản</span>
+                <span className="sm:hidden">Tạo</span>
               </button>
             </div>
 

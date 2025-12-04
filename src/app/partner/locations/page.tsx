@@ -130,28 +130,29 @@ export default function PartnerLocationsPage() {
       <NavBar />
       <div className="flex flex-1 overflow-hidden">
         <PartnerSidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6 lg:mb-8">
           <div>
             <h1 
-              className="text-3xl font-bold text-gray-900 mb-2"
+              className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
               Địa điểm của tôi
             </h1>
-            <p className="text-gray-600">
+            <p className="text-sm sm:text-base text-gray-600">
               Quản lý các địa điểm bạn đã đăng ký
             </p>
           </div>
           <Link
             href="/partner/locations/add"
-            className="px-6 py-3 bg-blue-800 text-white rounded-xl font-semibold hover:bg-blue-900 transition-colors flex items-center gap-2"
+            className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-800 text-white rounded-xl font-semibold hover:bg-blue-900 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Thêm địa điểm
+            <span className="hidden sm:inline">Thêm địa điểm</span>
+            <span className="sm:hidden">Thêm</span>
           </Link>
         </div>
 

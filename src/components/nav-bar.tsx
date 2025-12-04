@@ -90,18 +90,20 @@ export default function NavBar({ onSearchClick }: NavBarProps) {
                         {isAuthenticated && user ? (
                             <div className="hidden md:flex items-center space-x-4">
                                 {/* User Info - Clickable to Profile */}
-                                <Link 
+                                {/* <Link 
                                     href="/user/profile"
                                     className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-                                >
+                                > */}
+                                <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
                                     <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
                                         {user.fullName?.charAt(0).toUpperCase() || "U"}
                                     </div>
                                     <span className="text-sm font-semibold text-gray-700">
-                                        {user.fullName?.split(" ")[0]}
+                                        {user.fullName?.split(" ").at(-1) || "Người dùng"}
                                     </span>
-                                </Link>
-                                
+                                </div>
+                                {/* </Link> */}
+
                                 {/* Logout Button - Icon only */}
                                 <button
                                     onClick={logout}
@@ -203,9 +205,9 @@ export default function NavBar({ onSearchClick }: NavBarProps) {
 
             {/* Built-in Search Overlay - only render if no external handler */}
             {!onSearchClick && (
-                <SearchOverlay 
-                    isOpen={isSearchOpen} 
-                    onClose={() => setIsSearchOpen(false)} 
+                <SearchOverlay
+                    isOpen={isSearchOpen}
+                    onClose={() => setIsSearchOpen(false)}
                 />
             )}
         </nav>

@@ -151,16 +151,16 @@ export default function PartnerBookingsPage() {
       <NavBar />
       <div className="flex flex-1 overflow-hidden">
         <PartnerSidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 lg:mb-8">
           <h1 
-            className="text-3xl font-bold text-gray-900 mb-2"
+            className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             Quản lý đặt chỗ
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600">
             Xem và xử lý các yêu cầu đặt chỗ từ khách hàng
           </p>
         </div>

@@ -13,7 +13,7 @@ interface PendingPlace {
   name: string;
   description: string | null;
   slug: string;
-  district: string | null;
+  ward: string | null;
   coverImageUrl: string | null;
   createdAt: string;
   createdBy?: {
@@ -83,7 +83,7 @@ export default function AdminApprovalPage() {
         name: string;
         description: string | null;
         slug: string;
-        district: string | null;
+        ward: string | null;
         coverImageUrl: string | null;
         createdAt: string;
         createdBy?: { id: string; fullName: string; email: string };
@@ -93,7 +93,7 @@ export default function AdminApprovalPage() {
         name: place.name,
         description: place.description,
         slug: place.slug,
-        district: place.district,
+        ward: place.ward,
         coverImageUrl: place.coverImageUrl,
         createdAt: place.createdAt,
         createdBy: place.createdBy,
@@ -148,16 +148,16 @@ export default function AdminApprovalPage() {
       <div className="flex flex-1 overflow-hidden">
         <AdminSidebar />
         <main className="flex-1 overflow-y-auto bg-[rgb(252,252,252)]" style={{ scrollbarGutter: 'stable' }}>
-          <div className="max-w-7xl mx-auto py-8 px-4 lg:px-8">
+          <div className="max-w-7xl mx-auto py-4 sm:py-6 lg:py-8 px-4 lg:px-8">
             {/* Header */}
-            <div className="mb-8">
+            <div className="mb-6 lg:mb-8">
               <h1 
-                className="text-3xl md:text-4xl font-bold text-gray-900 mb-2"
+                className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
                 Chờ duyệt
               </h1>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600">
                 Quản lý các địa điểm chờ duyệt từ người dùng
               </p>
             </div>
@@ -247,7 +247,7 @@ export default function AdminApprovalPage() {
                           </td>
                           <td className="px-6 py-4">
                             <div className="text-sm text-gray-900">
-                              {place.district || "Chưa cập nhật"}
+                              {place.ward || "Chưa cập nhật"}
                             </div>
                           </td>
                           <td className="px-6 py-4">

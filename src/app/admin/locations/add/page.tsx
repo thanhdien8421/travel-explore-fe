@@ -50,10 +50,10 @@ export default function AdminAddLocationPage() {
       <NavBar />
       <div className="flex flex-1 overflow-hidden">
         <AdminSidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+        <div className="mb-6 lg:mb-8">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 mb-4">
             <Link href="/admin" className="hover:text-gray-900">
               Tổng quan
             </Link>
@@ -61,18 +61,18 @@ export default function AdminAddLocationPage() {
             <span className="text-gray-900">Thêm địa điểm</span>
           </div>
           <h1
-            className="text-3xl font-bold text-gray-900 mb-2"
+            className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             Thêm địa điểm mới
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600">
             Thêm địa điểm du lịch mới vào hệ thống
           </p>
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Form */}
           <div className="xl:col-span-2">
             <LocationForm

@@ -136,7 +136,7 @@ export default function UserProfilePage() {
       <NavBar />
       <div className="flex flex-1 overflow-hidden">
         <UserSidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
           <div className="max-w-3xl mx-auto">
             {/* Header with Avatar */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">

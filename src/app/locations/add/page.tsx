@@ -54,7 +54,7 @@ export default function AddLocationPage() {
             Thêm Địa Điểm Mới
           </h1>
           <p className="text-gray-600 text-lg">
-            Chia sẻ những địa điểm yêu thích của bạn với cộng đồng. 
+            Chia sẻ những địa điểm yêu thích của bạn với cộng đồng.
             <br />
             Các địa điểm mới sẽ được duyệt bởi đội ngũ của chúng tôi trước khi công khai.
           </p>
@@ -87,13 +87,13 @@ export default function AddLocationPage() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white mt-16">
+      <footer className="bg-gray-900 text-white">
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="col-span-1 md:col-span-2">
               <div className="flex-shrink-0">
                 <Link href="/" className="flex items-center">
-                  <Image src="/logo.png" alt="Travel Explore Logo" width={64} height={64} className="h-16 w-auto mr-3 mb-2 rounded-2xl" />
+                  <img src="/logo.png" alt="Travel Explore Logo" className="h-16 w-auto mr-3 mb-2 rounded-2xl" />
                 </Link>
               </div>
               <p className="text-gray-400 mb-4 max-w-md text-sm">
@@ -105,7 +105,9 @@ export default function AddLocationPage() {
               <ul className="space-y-2">
                 <li><Link href="/" className="text-gray-400 hover:text-white transition-colors">Trang chủ</Link></li>
                 <li><Link href="/locations" className="text-gray-400 hover:text-white transition-colors">Địa điểm</Link></li>
-                <li><Link href="/locations/add" className="text-gray-400 hover:text-white transition-colors">Thêm địa điểm</Link></li>
+                <li><Link href="/partner" className="text-gray-400 hover:text-white transition-colors">Trở thành đối tác</Link></li>
+                {/* <li><Link href="/locations/add" className="text-gray-400 hover:text-white transition-colors">Thêm địa điểm</Link></li>
+                <li><Link href="/admin" className="text-gray-400 hover:text-white transition-colors">Quản lý</Link></li> */}
               </ul>
             </div>
 

@@ -370,6 +370,7 @@ export default function LocationsPage() {
                             <ul className="space-y-2">
                                 <li><Link href="/" className="text-gray-400 hover:text-white transition-colors">Trang chủ</Link></li>
                                 <li><Link href="/locations" className="text-gray-400 hover:text-white transition-colors">Địa điểm</Link></li>
+                                <li><Link href="/partner" className="text-gray-400 hover:text-white transition-colors">Trở thành đối tác</Link></li>
                                 {/* <li><Link href="/locations/add" className="text-gray-400 hover:text-white transition-colors">Thêm địa điểm</Link></li>
                 <li><Link href="/admin" className="text-gray-400 hover:text-white transition-colors">Quản lý</Link></li> */}
                             </ul>

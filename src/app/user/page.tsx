@@ -7,6 +7,7 @@ import NavBar from "@/components/nav-bar";
 import UserSidebar from "@/components/user-sidebar";
 import { apiService, VisitHistory } from "@/lib/api";
 import { getImageUrl } from "@/lib/image-utils";
+import { useAuth } from "@/contexts/auth-context";
 
 interface UserStats {
   totalVisits: number;
@@ -22,7 +23,7 @@ export default function UserDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>("");
+  const { user } = useAuth();
 
   useEffect(() => {
     const savedToken = localStorage.getItem("auth_token");
@@ -45,7 +46,6 @@ export default function UserDashboardPage() {
         }
         return;
       }
-      setUserName(payload.fullName || payload.email || "Người dùng");
     } catch {
       router.push("/");
       return;
@@ -110,16 +110,16 @@ export default function UserDashboardPage() {
       <div className="flex flex-1 overflow-hidden">
         <UserSidebar />
 
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 lg:mb-8">
           <h1 
-            className="text-3xl font-bold text-gray-900 mb-2"
+            className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            Xin chào, {userName}!
+            Xin chào, {user ? user.fullName.split(" ").at(-1) : "Người dùng"}!
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600">
             Chào mừng bạn đến với trang cá nhân Travel Explore
           </p>
         </div>

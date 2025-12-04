@@ -87,12 +87,12 @@ export default function UserVisitsPage() {
       <NavBar />
       <div className="flex flex-1 overflow-hidden">
         <UserSidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 lg:mb-8">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>Lịch sử điểm đến</h1>
-              <p className="text-gray-600 mt-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>Lịch sử điểm đến</h1>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">
                 Những địa điểm bạn đã ghé thăm ({visits.length > 0 ? visits.length : "--"} địa điểm)
               </p>
             </div>
